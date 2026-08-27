@@ -1,25 +1,26 @@
-name: Dependency security upgrade probe
+name: Finalize secured dependencies
 
 on:
   push:
     branches:
-      - chatgpt/audit-fixes-light-dashboard
+      - chatgpt/audit-fixes-light-dashboard-finalize2
     paths:
       - '.github/workflows/dependency-upgrade-probe.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  resolve:
+  resolve-test-commit:
     runs-on: ubuntu-latest
     env:
       COMPOSER_NO_INTERACTION: '1'
-      COMPOSER_NO_AUDIT: '1'
+      COMPOSER_PROCESS_TIMEOUT: '0'
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: chatgpt/audit-fixes-light-dashboard
+          ref: chatgpt/audit-fixes-light-dashboard-finalize2
+          fetch-depth: 0
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -27,7 +28,7 @@ jobs:
           tools: composer:v2
           coverage: none
 
-      - name: Prepare patched Laravel 10-compatible constraints
+      - name: Prepare secure Laravel 10-compatible constraints
         shell: bash
         run: |
           python3 <<'PY'
@@ -39,7 +40,6 @@ jobs:
           r = d['require']
           rd = d['require-dev']
 
-          # Remove malware-listed, abandoned-unused and security-blocking legacy packages.
           for package in (
               'laravel-lang/lang',
               'macsidigital/laravel-zoom',
@@ -47,38 +47,114 @@ jobs:
           ):
               r.pop(package, None)
 
-          # Keep dev minimum only because ivanomatteo/laravel-device-tracking is explicitly dev-master.
           d['minimum-stability'] = 'dev'
           d['prefer-stable'] = True
 
-          # Stay on the application's supported Laravel major, but move to the newest 10.x line.
-          r['laravel/framework'] = '^10.50.3'
-          r['laravel/cashier'] = '^16.7'
-          r['laravel/sanctum'] = '^3.3.3'
-          r['barryvdh/laravel-translation-manager'] = '^0.6.9'
-          r['barryvdh/laravel-dompdf'] = '^3.1.2'
-          r['dompdf/dompdf'] = '^3.1.6'
-          r['firebase/php-jwt'] = '^7.0'
-          r['guzzlehttp/guzzle'] = '^7.15.2'
-          r['phpoffice/phpspreadsheet'] = '^1.30.6'
-          r['webklex/laravel-imap'] = '^6.2'
-          r['stripe/stripe-php'] = '^20.3'
-          r['phpseclib/phpseclib'] = '^3.0.54'
-          r['setasign/fpdi'] = '^2.6.7'
-          r['google/protobuf'] = '^4.33.6'
-          r['league/commonmark'] = '^2.9.0'
+          secure = {
+              'laravel/framework': '^10.50.3',
+              'laravel/cashier': '^16.7',
+              'laravel/sanctum': '^3.3.3',
+              'barryvdh/laravel-translation-manager': '^0.6.9',
+              'barryvdh/laravel-dompdf': '^3.1.2',
+              'dompdf/dompdf': '^3.1.6',
+              'firebase/php-jwt': '^7.0',
+              'guzzlehttp/guzzle': '^7.15.2',
+              'phpoffice/phpspreadsheet': '^1.30.6',
+              'webklex/laravel-imap': '^6.2',
+              'stripe/stripe-php': '^20.3',
+              'phpseclib/phpseclib': '^3.0.54',
+              'setasign/fpdi': '^2.6.7',
+              'google/protobuf': '^4.33.6',
+              'league/commonmark': '^2.9.0',
+              'hekmatinasser/verta': '^9.0',
+              'mehedijaman/laravel-zkteco': '^1.0.1',
+              'misterspelik/laravel-pdf': '^2.2',
+              'psr/http-factory-implementation': '^1.0',
+              'salehhashemi/laravel-otp-manager': '^1.5.3',
+              'shetabit/multipay': '^2.11',
+              'shetabit/payment': '^6.4',
+              'tzsk/sms': '^9.0',
+              'nwidart/laravel-modules': '^10.0',
+              'league/flysystem-ftp': '^3.0',
+              'square/square': '^16.0',
+              'ivanomatteo/laravel-device-tracking': 'dev-master#26d62d7',
+          }
+          r.update(secure)
 
           rd['phpunit/phpunit'] = '^10.5.62'
           rd['psy/psysh'] = '^0.12.19'
 
+          config = d.setdefault('config', {})
+          config['policy'] = {
+              'advisories': {
+                  'block': True,
+                  'audit': 'fail',
+                  'ignore-id': {
+                      'PKSA-3r5d-mb8f-1qw9': 'Laravel 10 has no patched release; inbound email values are protected by RejectUnsafeEmailHeaders middleware and regression tests.',
+                      'PKSA-mdq4-51ck-6kdq': 'Duplicate CRLF advisory for Laravel 10; inbound email values are protected by RejectUnsafeEmailHeaders middleware and regression tests.',
+                      'CVE-2026-48019': 'CRLF email injection mitigated at the HTTP boundary; upgrade to Laravel 12 remains blocked by froiden/laravel-rest-api.',
+                      'GHSA-5vg9-5847-vvmq': 'CRLF email injection mitigated at the HTTP boundary; upgrade to Laravel 12 remains blocked by froiden/laravel-rest-api.',
+                      'PKSA-m5cs-t1y6-qpcs': 'Temporary local signed filesystem URLs are not used; CI forbids introducing temporaryUrl/temporaryUploadUrl while on Laravel 10.',
+                      'GHSA-crmm-hgp2-wgrp': 'Temporary local signed filesystem URLs are not used; CI forbids introducing temporaryUrl/temporaryUploadUrl while on Laravel 10.',
+                  },
+              },
+              'abandoned': {
+                  'block': False,
+                  'audit': 'report',
+              },
+          }
+
           p.write_text(json.dumps(d, indent=4, ensure_ascii=False) + '\n')
           PY
 
-      - name: Resolve fresh patched dependency graph
-        run: composer update --with-all-dependencies --no-scripts --no-interaction --prefer-dist --no-security-blocking
+      - name: Resolve patched dependency graph
+        run: composer update --with-all-dependencies --no-scripts --prefer-dist --no-security-blocking
 
-      - name: Validate resolved Composer files
+      - name: Validate Composer files
         run: composer validate --no-check-publish
 
-      - name: Audit resolved graph
+      - name: Audit dependency graph
         run: composer audit --locked --no-interaction
+
+      - name: Prevent vulnerable local temporary signed URL APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --include='*.php' 'temporaryUploadUrl\s*\(|temporaryUrl\s*\(' app routes config Modules 2>/dev/null; then
+            echo 'Temporary local signed URL API usage is blocked until Laravel is upgraded to a patched major.'
+            exit 1
+          fi
+
+      - name: Check PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find app routes config database tests Modules -type f -name '*.php' -print0 2>/dev/null \
+            | xargs -0 -n1 php -l
+
+      - name: Run unit tests
+        run: vendor/bin/phpunit --testsuite Unit
+
+      - name: Verify Laravel package discovery
+        shell: bash
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+          php artisan package:discover --ansi
+
+      - name: Run full test suite
+        run: vendor/bin/phpunit
+
+      - name: Commit verified dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'chatgpt-project-audit'
+          git config user.email 'actions@users.noreply.github.com'
+          git add composer.json composer.lock
+          if git diff --cached --quiet; then
+            echo 'No dependency changes to commit.'
+          else
+            git commit -m 'security: update verified PHP dependency graph'
+            git push origin HEAD:chatgpt/audit-fixes-light-dashboard-finalize2
+          fi
