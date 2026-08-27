@@ -15,6 +15,41 @@
             width: 600px;
         }
 
+        /* Light dashboard theme: neutral gray canvas with white surfaces. */
+        .dashboard-header {
+            background: #ffffff !important;
+            border-bottom: 1px solid #e5e7eb !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        }
+
+        .admin-dashboard {
+            min-height: calc(100vh - 150px);
+            background: #f5f6f8 !important;
+            color: #1f2937;
+        }
+
+        .admin-dashboard .card,
+        .admin-dashboard .bg-white,
+        .admin-dashboard .table-responsive,
+        .admin-dashboard .dropdown-menu {
+            background-color: #ffffff !important;
+        }
+
+        .admin-dashboard .card {
+            border: 1px solid #e5e7eb !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+        }
+
+        .admin-dashboard .card-header,
+        .admin-dashboard .card-footer {
+            background-color: #ffffff !important;
+            border-color: #eef0f3 !important;
+        }
+
+        .admin-dashboard .table thead th {
+            background-color: #f8fafc;
+        }
+
         @media (max-width: 768px) {
             .dashboard-settings {
                 width: 300px;
@@ -158,7 +193,7 @@ $viewFinanceDashboard = user()->permission('view_finance_dashboard');
 @section('content')
 
     <!-- CONTENT WRAPPER START -->
-    <div class="px-4 py-0 py-lg-3  border-top-0 admin-dashboard">
+    <div class="px-4 py-0 py-lg-3 border-top-0 admin-dashboard">
         @include($view)
     </div>
     <!-- CONTENT WRAPPER END -->
@@ -227,7 +262,7 @@ $viewFinanceDashboard = user()->permission('view_finance_dashboard');
             $(this).addClass('active');
 
             const dateRangePicker = $('#datatableRange2').data('daterangepicker');
-            let startDate = $('#datatableRange').val();
+            let startDate = $('#datatableRange2').val();
             var locale = "{{app()->getLocale()}}";
             let endDate;
 
@@ -276,9 +311,10 @@ $viewFinanceDashboard = user()->permission('view_finance_dashboard');
 
         function showTable() {
             const dateRangePicker = $('#datatableRange2').data('daterangepicker');
-            let startDate = $('#datatableRange').val();
+            let startDate = $('#datatableRange2').val();
             var locale = "{{app()->getLocale()}}";
             let endDate;
+
             if (startDate === '') {
                 startDate = null;
                 endDate = null;
@@ -295,7 +331,8 @@ $viewFinanceDashboard = user()->permission('view_finance_dashboard');
                 }    
             }
 
-            const requestUrl = this.href;
+            const requestUrl = $('.project-menu .p-sub-menu.active').attr('href')
+                || "{{ route('dashboard.advanced') }}?tab={{ $activeTab }}";
 
             $.easyAjax({
                 url: requestUrl,
