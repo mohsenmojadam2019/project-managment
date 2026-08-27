@@ -41,8 +41,9 @@ jobs:
           d['require-dev']['phpunit/phpunit']='^11.5.50'
           p.write_text(json.dumps(d, indent=4, ensure_ascii=False)+'\n')
           PY
-          composer validate --no-check-publish
       - name: Resolve full secure dependency graph
         run: composer update --with-all-dependencies --no-scripts --no-interaction --prefer-dist
+      - name: Validate resolved Composer files
+        run: composer validate --no-check-publish
       - name: Audit resolved graph
         run: composer audit --locked --no-interaction
