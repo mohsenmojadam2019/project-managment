@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Project;
 
+use App\Helper\UserService;
 use App\Models\Project;
 use App\Http\Requests\CoreRequest;
 use App\Traits\CustomFieldsRequestTrait;
@@ -17,7 +18,29 @@ class UpdateProject extends CoreRequest
      */
     public function authorize()
     {
-        return true;
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $projectId = $this->route('project') ?? $this->input('project_id');
+        $project = Project::withTrashed()->find($projectId);
+
+        if (!$project) {
+            return false;
+        }
+
+        $permission = user()->permission('edit_projects');
+        $userId = UserService::getUserId();
+        $isClient = in_array('client', user_roles());
+        $isEmployee = in_array('employee', user_roles());
+        $isMember = $project->members()->where('user_id', $userId)->exists();
+        $isAddedBy = (int) $project->added_by === (int) $userId;
+        $isClientOwner = (int) $project->client_id === (int) $userId;
+
+        return $permission === 'all'
+            || ($permission === 'added' && $isAddedBy)
+            || ($permission === 'owned' && (($isClient && $isClientOwner) || ($isEmployee && $isMember)))
+            || ($permission === 'both' && ($isAddedBy || $isClientOwner || ($isEmployee && $isMember)));
     }
 
     /**
@@ -27,12 +50,14 @@ class UpdateProject extends CoreRequest
      */
     public function rules()
     {
+        $projectId = $this->route('project') ?? $this->input('project_id');
+
         $rules = [
             'project_name' => 'required|max:150',
             'start_date' => 'required',
             'hours_allocated' => 'nullable|numeric',
             'client_id' => 'requiredIf:client_view_task,true',
-            'project_code' => $this->project_code != '' ? 'unique:projects,project_short_code,' . $this->project_id . ',id,company_id,' . company()->id : '',
+            'project_code' => $this->project_code != '' ? 'unique:projects,project_short_code,' . $projectId . ',id,company_id,' . company()->id : '',
         ];
 
         if (!$this->has('without_deadline')) {
@@ -44,7 +69,7 @@ class UpdateProject extends CoreRequest
             $rules['currency_id'] = 'required';
         }
 
-        $project = Project::findOrFail(request()->project_id);
+        $project = Project::findOrFail($projectId);
 
         if (request()->private && in_array('employee', user_roles()))  {
             $rules['user_id.0'] = 'required';
