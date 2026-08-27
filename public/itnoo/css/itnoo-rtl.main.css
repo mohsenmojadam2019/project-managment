@@ -1,0 +1,214 @@
+/* ساختار و بدنه */
+/* th, td {
+    text-align: center!important;
+} */
+/* preloader-container در موبایل */
+@media (max-width: 992px) {
+    .rtl .preloader-container {
+        width: 100%!important;
+        height: 100vh!important;
+    }
+}
+@media (max-width: 991.98px) {
+    .project-header .project-menu {
+        overflow: scroll;
+    }
+}
+/* تنظیم ارتفاع بدنه صفحه در بخش هایی چون فاکتور، کارها و . . .  */
+#invoices-table_wrapper .row .col-sm-12 {
+    min-height: 400px!important;
+}
+
+/* پروژه ها */
+/* تغییر ارتفاع بدنه در بخش جزئیات پروژه */
+/* .row.mb-4 .col-sm-12 {
+    min-height: 0px!important;
+} */
+.tabs .-secondary {
+    right: auto!important;
+    left: 0;
+}
+.tabs.--show-secondary .-secondary li span {
+    text-align: center!important;
+}
+.dropdown-menu.dropdown-menu-right.border-grey.rounded.b-shadow-4.p-0.show {
+    left: -1px!important;
+}
+
+/* استایل فیلد های ورودی و دراپ داون ها */
+.input-group {
+    flex-direction: row-reverse;
+}
+.bootstrap-select .dropdown-menu.inner, .dropdown-menu, .ql-editor {
+    text-align: right!important;
+}
+.input-group > .form-control:not(:first-child), .input-group > .custom-select:not(:first-child) {
+    margin-left: -2px;
+}
+div#active-timer-list {
+    transform: translate3d(-43px, -11px, 12px)!important;
+    padding: 0;
+}
+.dropdown-menu.dropdown-menu-right.show {
+    left: 21px!important;
+}
+.dropdown-item {
+    white-space: wrap!important;
+    min-width: 200px;
+}
+.input-group-addon.datePickerInput.d-flex.align-items-center.pr-3 {
+    min-width: 20px;
+    text-align: center!important;
+    display: flex;
+    justify-content: center;
+}
+.form-control.date-picker, input#end_time, input#start_time {
+    direction: ltr;
+}
+
+/*  textarea استایل ادیتور ها */
+.ql-editor {
+    min-height: 24px;
+}
+#textarea-emoji {
+    right: 30px!important;
+    top: 0;
+}
+.ql-snow .ql-picker:not(.ql-color-picker):not(.ql-icon-picker) svg {
+    right: auto;
+    left: 0;
+}
+td.dash-border-top.bblr textarea {
+    overflow-y: scroll;
+    min-height: 150px;
+}
+.ql-editor.ql-blank::before {
+    font-family: 'iranyekan';
+    top: 40px;
+    right: 44px!important;
+}
+/* ایجاد مشکل در بخش شیفت بندی */
+/* .input-group {
+    flex-wrap: nowrap!important;
+} */
+
+/* فیکس کردن عرض دراپ داون با عرض فیلد در زمان خطا */
+.is-invalid.show .dropdown-menu.show {
+    left: 0!important;
+}
+
+/* استایل صفحه بندی ها */
+select.custom-select.custom-select-sm.form-control.form-control-sm {
+    direction: ltr;
+}
+/* کارت های تایمیکس */
+.bootstrap-timepicker-widget.dropdown-menu.open {
+    direction: ltr;
+}
+
+/* پروفایل کاربر */
+@keyframes blink {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+.user-online {
+    animation: blink 2s infinite;
+    bottom: auto!important;
+    right: auto!important;
+    top: -5px;
+}
+.taskEmployeeImg img {
+    height: auto!important;
+}
+/* بخش تیکتینگ */
+/* داخل تیکت ها سایدبار سمت چپ مشکل اسکرول نشدن به پایین */
+
+/* استایل بخش تیکت ها */
+/* ارتفاع پیام تیکت در هنگام نوشتن یادداشت جدید */
+div#ticketMsg {
+    min-height: 100px;
+}
+@media (min-width: 992px) {
+    ul.dropdown-menu.show {
+        left: 0;
+        right: 1%;
+        min-width: 13rem;
+    }
+}
+@media (max-width: 992px) {
+    .close-it {
+        rotate: 180deg;
+        left: 316px;
+        top: 9px !important;
+        z-index: 999;
+    }
+    div#ticket-detail-contact {
+        height: 100vh!important;
+    }
+    div#updateTicketForm {
+        height: 80vh!important;
+    }
+    .dropdown-menu.show {
+        min-width: 271px!important;
+        max-width: 271px;
+    }
+}
+.ticket-wrapper .ticket-right.in {
+    max-width: 340px!important;
+}
+.ticket-wrapper .ticket-right {
+    max-width: 393px;
+    width: 556px!important;
+}
+a.dropdown-item.delete-message {
+    width: 158px!important;
+    min-width: fit-content!important;
+    text-align: center;
+}
+.dropdown-menu.dropdown-menu-right.border-grey.rounded.b-shadow-4.p-0.show {
+    right: -300px;
+    left: auto!important;
+}
+.ticket-wrapper .ticket-right .nav-item {
+    padding: 15px!important;
+}
+div#nav-tab {
+    padding-right: 20px;
+}
+
+/* مشاهده فاکتور */
+tr.inv-logo-heading {
+    display: block;
+}
+table.inv-num-date.text-dark.f-13.mt-3 tr {
+    display: flex;
+    flex-direction: row-reverse;
+    width: 300px;
+}
+table.inv-num-date.text-dark.f-13.mt-3 tr td {
+    width: 100%;
+}
+/* چرخش ایکن */
+.fa-arrow-right {
+    transform: rotate(180deg);
+}
+
+.rtl .msg-content-right {
+    margin-right: auto!important;
+}
+
+/* month date picker */
+
+.dropdown.show .dropdown-menu.show {
+    min-width: auto!important;
+}
+.dropdown.show .dropdown-menu.show .dropdown-item {
+    min-width: auto!important;
+}

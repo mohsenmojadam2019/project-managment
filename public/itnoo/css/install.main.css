@@ -1,0 +1,17 @@
+body {
+    text-align: right;
+    direction: rtl;
+}
+h3.panel-title {
+    display: flex;
+    gap: 10px;
+}
+li.list__item.success {
+    direction: ltr;
+}
+li.list__item.list__item--permissions.success {
+     text-align: left;
+}
+li.list__item.list__item--permissions.error {
+    text-align: left;
+}

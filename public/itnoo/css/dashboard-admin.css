@@ -1,0 +1,58 @@
+/* رفع باگ هاور دکمه چرخ دنده در داشبورد مدیریت */
+@media (min-width: 992px) {
+    ul.dropdown-menu.show {
+        right: auto!important;
+    }
+    /* دکمه تایمر */
+    div#active-timer-list {
+        transform: translate3d(100px, -10px, 12px)!important;
+    }
+}
+
+/* mobile */
+@media (max-width: 992px) {
+/* دکمه تایمر */
+    div#active-timer-list {
+        transform: translate3d(-130px, -10px, 12px)!important;
+    }
+    li.d-none.d-sm-block {
+        display: block!important;
+    }
+    
+/* راستچین کردن منو در موبایل */
+    .project-header .project-menu .p-sub-menu span {
+        text-align: right!important;
+    }
+    .rtl .project-menu.in .close-it {
+        border-radius: 22px 0 0 22px!important;
+    }
+    .page-header-right {
+        width: 100%;
+    }
+}
+/* الاین کردن قسمت نمودارها وقتی داده ای داخلش نیست */
+.text-center.text-lightest.p-20,
+.align-items-center.d-flex.flex-column.text-lightest.p-20,
+.align-items-center.d-flex.flex-column.text-lightest.p-20.w-100 {
+    display: flex!important;
+    flex-direction: column!important;
+    justify-content: center!important;
+    align-items: center!important;
+}
+.align-items-center.d-flex.flex-column.text-lightest.p-20.w-100 {
+    min-height: 300px;
+}
+/* توضیح کوتاه زیر هر نمودار */
+.chart-container .legend-dataset-text {
+    transform: translate(78px, 0px);
+}
+/* دکمه تایمر */
+.dropdown-item {
+    min-width: unset!important;
+}
+a#start-timer-modal {
+    text-align: center;
+}
+p.mb-0.text-lg-right.text-md-right.f-18.font-weight-bold.text-dark-grey.d-grid.align-items-center {
+    margin-left: 8px;
+}

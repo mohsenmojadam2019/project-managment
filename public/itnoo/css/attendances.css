@@ -1,0 +1,10 @@
+th.pr-2.pl-1.f-11 {
+    min-width: 30px;
+    text-align: center;
+}
+td.px-1 {
+    text-align: center;
+}
+th.px-2:first-child {
+    min-width: 200px;
+}
