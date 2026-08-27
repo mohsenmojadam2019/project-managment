@@ -25,6 +25,7 @@ class EnforceSensitiveTaskPermissions
 
         $editRoutes = [
             'tasks.gantt_task_update',
+            'tasks.update',
         ];
 
         $statusRoutes = [
@@ -32,6 +33,21 @@ class EnforceSensitiveTaskPermissions
             'tasks.show_status_reason_modal',
             'tasks.store_comment_on_change_status',
         ];
+
+        // Duplicating a task must not be a way to read/copy an inaccessible task.
+        if ($request->routeIs('tasks.create') && $request->filled('duplicate_task')) {
+            $source = $this->findTask($request->input('duplicate_task'));
+            abort_403(!$this->canViewTask($source));
+        }
+
+        if ($request->routeIs('tasks.store')) {
+            if ($request->filled('taskId')) {
+                $source = $this->findTask($request->input('taskId'));
+                abort_403(!$this->canViewTask($source));
+            }
+
+            $this->authorizeTaskTargetProject($request->input('project_id'));
+        }
 
         if ($request->routeIs(...$viewRoutes)) {
             $task = $this->resolveTask($request);
@@ -41,6 +57,10 @@ class EnforceSensitiveTaskPermissions
         if ($request->routeIs(...$editRoutes)) {
             $task = $this->resolveTask($request);
             abort_403(!$this->canEditTask($task));
+
+            if ($request->routeIs('tasks.update')) {
+                $this->authorizeTaskTargetProject($request->input('project_id'), $task);
+            }
         }
 
         if ($request->routeIs(...$statusRoutes)) {
@@ -72,15 +92,41 @@ class EnforceSensitiveTaskPermissions
         return $next($request);
     }
 
+    private function authorizeTaskTargetProject($projectId, ?Task $task = null): void
+    {
+        if ($projectId === null || $projectId === '' || $projectId === 'all') {
+            abort_403(!in_array(user()->permission('add_tasks'), ['all', 'added'], true) && !$task);
+            return;
+        }
+
+        $project = Project::with('members')->findOrFail($projectId);
+        $ids = $this->identities();
+        $isProjectAdmin = in_array((int) $project->project_admin, $ids, true);
+
+        // A user may work with a project only if it is actually visible to them.
+        // Project admins are an explicit exception already used by TaskController.
+        abort_403(!$isProjectAdmin && !$this->canViewProject($project));
+
+        if (!$task) {
+            abort_403(!$isProjectAdmin && !in_array(user()->permission('add_tasks'), ['all', 'added'], true));
+        }
+    }
+
     private function resolveTask(Request $request): Task
     {
         $taskId = $request->route('taskID')
+            ?? $request->route('task')
             ?? $request->route('id')
             ?? $request->input('taskId')
             ?? $request->input('id');
 
         abort_403(empty($taskId));
 
+        return $this->findTask($taskId);
+    }
+
+    private function findTask($taskId): Task
+    {
         return Task::withTrashed()->with(['project', 'users', 'mentionTask'])->findOrFail($taskId);
     }
 
