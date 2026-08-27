@@ -41,6 +41,7 @@ class Kernel extends HttpKernel
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\EnforceSensitiveProjectPermissions::class,
             \App\Http\Middleware\ValidateTaskStatusChange::class,
+            \App\Http\Middleware\ValidateStripeInvoicePayment::class,
         ],
 
         'api' => [
