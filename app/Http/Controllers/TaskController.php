@@ -421,11 +421,16 @@ class TaskController extends AccountBaseController
             abort_403(!in_array($this->addPermission, ['all', 'added']));
         }
 
+        $taskBoardColumn = TaskboardColumn::where('slug', 'incomplete')->first();
+
+        if (!$taskBoardColumn) {
+            return Reply::error(__('messages.selectStatus'));
+        }
+
         DB::beginTransaction();
         $ganttTaskArray = [];
         $gantTaskLinkArray = [];
 
-        $taskBoardColumn = TaskboardColumn::where('slug', 'incomplete')->first();
         $task = new Task();
         $task->heading = $request->heading;
         $task->description = trim_editor($request->description);
@@ -441,6 +446,7 @@ class TaskController extends AccountBaseController
             $dependentTask = Task::findOrFail($request->dependent_task_id);
 
             if (!is_null($dependentTask->due_date) && !is_null($dueDate) && $dependentTask->due_date->greaterThan($dueDate)) {
+                DB::rollBack();
                 /* @phpstan-ignore-line */
                 return Reply::error(__('messages.taskDependentDate'));
             }
@@ -788,9 +794,15 @@ class TaskController extends AccountBaseController
             }
         }
 
-        if($request->select_value == 'Waiting Approval'){
+        if ($request->select_value == 'Waiting Approval') {
+            $taskBoardColumn = TaskboardColumn::where('column_name', $request->select_value)
+                ->where('company_id', company()->id)
+                ->first();
 
-            $taskBoardColumn = TaskboardColumn::where('column_name', $request->select_value)->where('company_id', company()->id)->first();
+            if (!$taskBoardColumn) {
+                return Reply::error(__('messages.selectStatus'));
+            }
+
             $task->board_column_id = $taskBoardColumn->id;
             $task->approval_send = 1;
         }
@@ -1131,7 +1143,7 @@ class TaskController extends AccountBaseController
         $task = Task::findOrFail($request->taskId);
         $taskBoardColumn = TaskboardColumn::where('slug', 'waiting_approval')->firstOrFail();
 
-        $task->approval_send = $request->isApproval ?? 0;
+        $task->approval_send = $request->boolean('isApproval') ? 1 : 0;
         $task->board_column_id = $taskBoardColumn->id;
         $task->save();
 
