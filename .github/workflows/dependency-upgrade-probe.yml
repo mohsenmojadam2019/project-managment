@@ -1,0 +1,48 @@
+name: Dependency security upgrade probe
+
+on:
+  push:
+    branches:
+      - chatgpt/audit-fixes-light-dashboard
+    paths:
+      - '.github/workflows/dependency-upgrade-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/audit-fixes-light-dashboard
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+      - name: Prepare secure constraints in worktree only
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('composer.json')
+          d=json.loads(p.read_text())
+          r=d['require']
+          r.pop('laravel-lang/lang', None)
+          r['laravel/framework']='^12.61.1'
+          r['laravel/sanctum']='^4.0'
+          r['barryvdh/laravel-dompdf']='^3.1.2'
+          r['dompdf/dompdf']='^3.1.6'
+          r['barryvdh/laravel-translation-manager']='^0.6.8'
+          r['guzzlehttp/guzzle']='^7.15.2'
+          d['require-dev']['phpunit/phpunit']='^11.5.50'
+          p.write_text(json.dumps(d, indent=4, ensure_ascii=False)+'\n')
+          PY
+          composer validate --no-check-publish
+      - name: Resolve full secure dependency graph
+        run: composer update --with-all-dependencies --no-scripts --no-interaction --prefer-dist
+      - name: Audit resolved graph
+        run: composer audit --locked --no-interaction
