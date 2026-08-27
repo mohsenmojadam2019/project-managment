@@ -49,7 +49,6 @@ Route::post('/lead-form/ticket-store', [HomeController::class, 'ticketStore'])->
 
 Route::post('/contract/sign/{id}', [PublicUrlController::class, 'contractSign'])->name('front.contract.sign');
 Route::get('/contract/download/{id}', [PublicUrlController::class, 'contractDownload'])->name('front.contract.download');
-Route::get('/check-env', [PublicUrlController::class, 'checkEnv'])->name('front.check-env');
 // Estimate Public url
 
 Route::post('/estimate/decline/{id}', [PublicUrlController::class, 'estimateDecline'])->name('front.estimate.decline');
