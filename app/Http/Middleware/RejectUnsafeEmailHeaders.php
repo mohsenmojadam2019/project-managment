@@ -5,13 +5,14 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class RejectUnsafeEmailHeaders
 {
     public function handle(Request $request, Closure $next): Response
     {
         if ($this->containsUnsafeEmailInput($request->all())) {
-            abort(422, 'Invalid email input.');
+            throw new HttpException(422, 'Invalid email input.');
         }
 
         return $next($request);
