@@ -2,39 +2,51 @@
 
 namespace App\Http\Requests\Lead;
 
-use App\Models\Company;
 use App\Http\Requests\CoreRequest;
+use App\Models\Company;
 use App\Traits\CustomFieldsRequestTrait;
+use Illuminate\Validation\Rule;
 
 class StorePublicLead extends CoreRequest
 {
     use CustomFieldsRequestTrait;
 
-    /**
-     * Determine if the user is authorized to make this request.
-     *
-     * @return bool
-     */
     public function authorize()
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array
-     */
     public function rules()
     {
-        $company = Company::findOrFail($this->request->get('company_id'));
-        $rules = array();
-        $rules['name'] = 'required';
-        $rules['email'] = 'nullable|email:rfc,strict|unique:leads,client_email,null,id,company_id,' . $company->id.'|unique:users,email,null,id,company_id,' . $company->id;
+        $companyId = (int) $this->input('company_id');
+        $company = Company::find($companyId);
+
+        $rules = [
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
+            'name' => ['required'],
+            'email' => [
+                'nullable',
+                'email:rfc,strict',
+                Rule::unique('leads', 'client_email')->where(fn ($query) => $query->where('company_id', $companyId)),
+                Rule::unique('users', 'email')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
+            'category_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('lead_categories', 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
+            'product' => ['nullable', 'array'],
+            'product.*' => [
+                'integer',
+                Rule::exists('products', 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
+        ];
 
         $rules = $this->customFieldRules($rules);
 
-        if(global_setting()->google_recaptcha_status == 'active' && global_setting()->ticket_form_google_captcha == 1 && (global_setting()->google_recaptcha_v2_status == 'active')){
+        if (global_setting()->google_recaptcha_status == 'active'
+            && global_setting()->ticket_form_google_captcha == 1
+            && global_setting()->google_recaptcha_v2_status == 'active') {
             $rules['g-recaptcha-response'] = 'required';
         }
 
@@ -43,11 +55,6 @@ class StorePublicLead extends CoreRequest
 
     public function attributes()
     {
-        $attributes = [];
-
-        $attributes = $this->customFieldsAttributes($attributes);
-
-        return $attributes;
+        return $this->customFieldsAttributes([]);
     }
-
 }
