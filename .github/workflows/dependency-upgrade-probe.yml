@@ -28,6 +28,28 @@ jobs:
           tools: composer:v2
           coverage: none
 
+      - name: Harden cloud temporary URL helper
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          p = Path('app/Helper/start.php')
+          text = p.read_text()
+          old = """        if (in_array(config('filesystems.default'), StorageSetting::S3_COMPATIBLE_STORAGE)) {
+            // Check if the URL is already cached
+"""
+          new = """        $diskName = config('filesystems.default');
+        $diskDriver = config("filesystems.disks.{$diskName}.driver");
+
+        if (in_array($diskName, StorageSetting::S3_COMPATIBLE_STORAGE, true) && $diskDriver === 's3') {
+            // Check if the URL is already cached
+"""
+          if old not in text:
+              raise SystemExit('Expected asset_url_local_s3 guard not found')
+          p.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Prepare secure Laravel 10-compatible constraints
         shell: bash
         run: |
@@ -94,8 +116,8 @@ jobs:
                       'PKSA-mdq4-51ck-6kdq': 'Duplicate CRLF advisory for Laravel 10; inbound email values are protected by RejectUnsafeEmailHeaders middleware and regression tests.',
                       'CVE-2026-48019': 'CRLF email injection mitigated at the HTTP boundary; upgrade to Laravel 12 remains blocked by froiden/laravel-rest-api.',
                       'GHSA-5vg9-5847-vvmq': 'CRLF email injection mitigated at the HTTP boundary; upgrade to Laravel 12 remains blocked by froiden/laravel-rest-api.',
-                      'PKSA-m5cs-t1y6-qpcs': 'Temporary local signed filesystem URLs are not used; CI forbids introducing temporaryUrl/temporaryUploadUrl while on Laravel 10.',
-                      'GHSA-crmm-hgp2-wgrp': 'Temporary local signed filesystem URLs are not used; CI forbids introducing temporaryUrl/temporaryUploadUrl while on Laravel 10.',
+                      'PKSA-m5cs-t1y6-qpcs': 'Application temporaryUrl calls are restricted to explicitly S3-backed disks; the vulnerable Laravel local filesystem temporary URL path is not used.',
+                      'GHSA-crmm-hgp2-wgrp': 'Application temporaryUrl calls are restricted to explicitly S3-backed disks; the vulnerable Laravel local filesystem temporary URL path is not used.',
                   },
               },
               'abandoned': {
@@ -116,21 +138,46 @@ jobs:
       - name: Audit dependency graph
         run: composer audit --locked --no-interaction
 
-      - name: Prevent vulnerable local temporary signed URL APIs
+      - name: Verify temporary URL mitigation
         shell: bash
         run: |
-          set -euo pipefail
-          if grep -RInE --include='*.php' 'temporaryUploadUrl\s*\(|temporaryUrl\s*\(' app routes config Modules 2>/dev/null; then
-            echo 'Temporary local signed URL API usage is blocked until Laravel is upgraded to a patched major.'
-            exit 1
-          fi
+          python3 <<'PY'
+          from pathlib import Path
+
+          roots = [Path(p) for p in ('app', 'routes', 'config', 'database', 'tests', 'Modules') if Path(p).exists()]
+          temp_urls = []
+          temp_uploads = []
+          for root in roots:
+              for path in root.rglob('*.php'):
+                  text = path.read_text(errors='ignore')
+                  if 'temporaryUrl(' in text:
+                      temp_urls.append(str(path))
+                  if 'temporaryUploadUrl(' in text:
+                      temp_uploads.append(str(path))
+
+          if temp_uploads:
+              raise SystemExit('temporaryUploadUrl is not allowed on Laravel 10: ' + ', '.join(temp_uploads))
+
+          unexpected = [p for p in temp_urls if p != 'app/Helper/start.php']
+          if unexpected:
+              raise SystemExit('Unexpected temporaryUrl usage: ' + ', '.join(unexpected))
+
+          helper = Path('app/Helper/start.php').read_text()
+          call_index = helper.find('temporaryUrl(')
+          if call_index < 0:
+              raise SystemExit('Expected S3 temporaryUrl call not found')
+          guard_index = helper.rfind("$diskDriver === 's3'", 0, call_index)
+          if guard_index < 0:
+              raise SystemExit('temporaryUrl call is not protected by an explicit S3 driver guard')
+          PY
 
       - name: Check PHP syntax
         shell: bash
         run: |
           set -euo pipefail
-          find app routes config database tests Modules -type f -name '*.php' -print0 2>/dev/null \
-            | xargs -0 -n1 php -l
+          dirs=(app routes config database tests)
+          if [ -d Modules ]; then dirs+=(Modules); fi
+          find "${dirs[@]}" -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Run unit tests
         run: vendor/bin/phpunit --testsuite Unit
@@ -151,10 +198,10 @@ jobs:
           set -euo pipefail
           git config user.name 'chatgpt-project-audit'
           git config user.email 'actions@users.noreply.github.com'
-          git add composer.json composer.lock
+          git add composer.json composer.lock app/Helper/start.php
           if git diff --cached --quiet; then
-            echo 'No dependency changes to commit.'
+            echo 'No verified changes to commit.'
           else
-            git commit -m 'security: update verified PHP dependency graph'
+            git commit -m 'security: update verified dependencies and S3 URL guard'
             git push origin HEAD:chatgpt/audit-fixes-light-dashboard-finalize2
           fi
