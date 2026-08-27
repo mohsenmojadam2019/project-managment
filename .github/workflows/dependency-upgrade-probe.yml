@@ -13,65 +13,123 @@ permissions:
 jobs:
   resolve:
     runs-on: ubuntu-latest
+    env:
+      COMPOSER_NO_INTERACTION: '1'
+      COMPOSER_NO_AUDIT: '1'
     steps:
       - uses: actions/checkout@v4
         with:
           ref: chatgpt/audit-fixes-light-dashboard
+
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
           tools: composer:v2
           coverage: none
-      - name: Prepare stable Laravel 10 security constraints
+
+      - name: Prepare patched Laravel 12-compatible constraints
         shell: bash
         run: |
           python3 <<'PY'
           import json
           from pathlib import Path
-          p=Path('composer.json')
-          d=json.loads(p.read_text())
-          r=d['require']
-          r.pop('laravel-lang/lang', None)
-          d['minimum-stability']='stable'
-          d['prefer-stable']=True
-          r['laravel/framework']='^10.48'
-          r['barryvdh/laravel-dompdf']='^3.1.2'
-          r['dompdf/dompdf']='^3.1.6'
-          r['barryvdh/laravel-translation-manager']='^0.6.8'
-          r['guzzlehttp/guzzle']='^7.15.2'
-          r['guzzlehttp/psr7']='^2.12.3'
-          r['guzzlehttp/oauth-subscriber']='^0.8.1'
-          r['firebase/php-jwt']='^7.0'
-          r['league/commonmark']='^2.9.0'
-          r['phpoffice/phpspreadsheet']='^1.30.6'
-          r['mtdowling/jmespath.php']='^2.9.1'
-          r['aws/aws-sdk-php']='^3.371.4'
-          r['google/protobuf']='^4.33.6'
-          r['phpseclib/phpseclib']='^3.0.54'
-          r['setasign/fpdi']='^2.6.7'
-          d['require-dev']['phpunit/phpunit']='^10.5.62'
-          d['require-dev']['psy/psysh']='^0.12.19'
-          p.write_text(json.dumps(d, indent=4, ensure_ascii=False)+'\n')
+
+          p = Path('composer.json')
+          d = json.loads(p.read_text())
+          r = d['require']
+          rd = d['require-dev']
+
+          # Security / maintenance removals.
+          for package in (
+              'laravel-lang/lang',
+              'macsidigital/laravel-zoom',
+              'laravelcollective/html',
+              'fruitcake/laravel-cors',
+          ):
+              r.pop(package, None)
+
+          d['minimum-stability'] = 'stable'
+          d['prefer-stable'] = True
+          r['php'] = '^8.2'
+
+          # Framework + packages that have Laravel-major compatibility lines.
+          r['laravel/framework'] = '^12.61.1'
+          r['laravel/cashier'] = '^16.7'
+          r['laravel/sanctum'] = '^4.3'
+          r['nwidart/laravel-modules'] = '^12.0'
+          r['diglactic/laravel-breadcrumbs'] = '^10.1'
+          r['mollie/laravel-mollie'] = '^4.1'
+          r['salehhashemi/laravel-otp-manager'] = '^2.0'
+          r['shetabit/visitor'] = '^4.5.6'
+          r['webklex/laravel-imap'] = '^6.2'
+          r['tymon/jwt-auth'] = '^2.3'
+          r['spatie/laravel-slack-alerts'] = '^1.9'
+          r['spatie/laravel-backup'] = '^9.0'
+          r['barryvdh/laravel-translation-manager'] = '^0.6.9'
+          r['barryvdh/laravel-dompdf'] = '^3.1.2'
+
+          for package in (
+              'yajra/laravel-datatables-buttons',
+              'yajra/laravel-datatables-editor',
+              'yajra/laravel-datatables-fractal',
+              'yajra/laravel-datatables-html',
+              'yajra/laravel-datatables-oracle',
+          ):
+              r[package] = '^12.0'
+
+          # Drop-in LaravelCollective-compatible fork; keeps Collective\\Html API/namespace.
+          r['sneakyx/laravel-collective-html'] = '^1.1'
+
+          # Explicit patched floors for packages that were in the vulnerable lock graph.
+          r['aws/aws-sdk-php'] = '^3.371.4'
+          r['dompdf/dompdf'] = '^3.1.6'
+          r['firebase/php-jwt'] = '^7.0'
+          r['guzzlehttp/guzzle'] = '^7.15.2'
+          r['phpoffice/phpspreadsheet'] = '^1.30.6'
+          r['phpseclib/phpseclib'] = '^3.0.54'
+          r['setasign/fpdi'] = '^2.6.7'
+          r['google/protobuf'] = '^4.33.6'
+
+          # Laravel 12 resolves on Symfony 7.x.
+          for package in (
+              'symfony/finder',
+              'symfony/http-client',
+              'symfony/mailgun-mailer',
+              'symfony/mailer',
+              'symfony/postmark-mailer',
+          ):
+              r[package] = '^7.4'
+
+          rd['nunomaduro/collision'] = '^8.9.5'
+          rd['phpunit/phpunit'] = '^10.5.62'
+          rd['spatie/laravel-ignition'] = '^2.12'
+          rd['psy/psysh'] = '^0.12.19'
+
+          p.write_text(json.dumps(d, indent=4, ensure_ascii=False) + '\n')
           PY
-      - name: Resolve stable patched dependency graph
+
+      - name: Resolve fresh patched dependency graph
         run: composer update --with-all-dependencies --no-scripts --no-interaction --prefer-dist --no-security-blocking
+
       - name: Reject unexpected dev dependencies
         shell: bash
         run: |
           python3 <<'PY'
           import json
           from pathlib import Path
-          lock=json.loads(Path('composer.lock').read_text())
-          bad=[]
-          for section in ('packages','packages-dev'):
-              for pkg in lock.get(section,[]):
-                  version=str(pkg.get('version',''))
+          lock = json.loads(Path('composer.lock').read_text())
+          bad = []
+          for section in ('packages', 'packages-dev'):
+              for pkg in lock.get(section, []):
+                  version = str(pkg.get('version', ''))
                   if version.startswith('dev-') or version.endswith('-dev') or 'x-dev' in version:
                       bad.append((pkg.get('name'), version))
           if bad:
-              raise SystemExit('Unexpected dev packages: ' + ', '.join(f'{n}={v}' for n,v in bad))
+              raise SystemExit('Unexpected dev packages: ' + ', '.join(f'{n}={v}' for n, v in bad))
           PY
+
       - name: Validate resolved Composer files
         run: composer validate --no-check-publish
+
       - name: Audit resolved graph
         run: composer audit --locked --no-interaction
