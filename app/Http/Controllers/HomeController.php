@@ -726,13 +726,30 @@ class HomeController extends Controller
             }
         }
 
-        $leadPipeline = LeadPipeline::where('default', '1')->where('company_id', $company->id)->first();
-        $leadStage = PipelineStage::where('default', '1')->where('lead_pipeline_id', $leadPipeline->id)->where('company_id', $company->id)->first();
+        $leadPipeline = LeadPipeline::where('default', '1')->where('company_id', $company->id)->first()
+            ?: LeadPipeline::where('company_id', $company->id)->orderBy('id')->first();
+
+        if (!$leadPipeline) {
+            return Reply::error('Lead pipeline is not configured for this company.');
+        }
+
+        $leadStage = PipelineStage::where('default', '1')
+            ->where('lead_pipeline_id', $leadPipeline->id)
+            ->where('company_id', $company->id)
+            ->first()
+            ?: PipelineStage::where('lead_pipeline_id', $leadPipeline->id)
+                ->where('company_id', $company->id)
+                ->orderBy('id')
+                ->first();
+
+        if (!$leadStage) {
+            return Reply::error('Lead pipeline stage is not configured for this company.');
+        }
 
         $leadContact = null;
 
         if (request()->has('email') && !is_null($request->email)) {
-            $leadContact = Lead::where('client_email', $request->email)->first();
+            $leadContact = Lead::where('client_email', $request->email)->where('company_id', $company->id)->first();
         }
 
         if (is_null($leadContact)) {
@@ -845,10 +862,20 @@ class HomeController extends Controller
         }
 
         /* $rules['g-recaptcha-response'] = 'required'; */
-        $existing_user = User::withoutGlobalScope(ActiveScope::class)->select('id', 'email')->where('email', $request->email)->first();
+        $existing_user = User::withoutGlobalScope(ActiveScope::class)->select('id', 'email')->where('company_id', $company->id)->where('email', $request->email)->first();
         $newUser = $existing_user;
 
         if (!$existing_user) {
+            $role = Role::withoutGlobalScope(CompanyScope::class)
+                ->where('name', 'client')
+                ->where('company_id', $company->id)
+                ->select('id')
+                ->first();
+
+            if (!$role) {
+                return Reply::error('Client role is not configured for this company.');
+            }
+
             $password = str_random(8);
             // create new user
             $client = new User();
@@ -861,14 +888,8 @@ class HomeController extends Controller
 
             event(new NewUserEvent($client, $password));
 
-            // attach role
-            $role = Role::withoutGlobalScope(CompanyScope::class)
-                ->where('name', 'client')
-                ->where('company_id', $company->id)
-                ->select('id')
-                ->first();
-
-            $role ? $client->attachRole($role->id) : null;
+            // attach role (validated before creating the user)
+            $client->attachRole($role->id);
 
             $clientDetail = new ClientDetails();
             $clientDetail->company_id = $client->company_id;
@@ -916,26 +937,20 @@ class HomeController extends Controller
         $plugins = Module::allEnabled();
         /* @phpstan-ignore-line */
 
-        $applicationVersion = trim(
-            preg_replace(
-                '/\s\s+/',
-                ' ',
-                !file_exists(File::get(public_path() . '/version.txt')) ? File::get(public_path() . '/version.txt') : '0'
-            )
-        );
+        $applicationVersionFile = public_path('version.txt');
+        $applicationVersion = File::exists($applicationVersionFile)
+            ? trim(preg_replace('/\s\s+/', ' ', File::get($applicationVersionFile)))
+            : '0';
         $enableModules = [];
         $enableModules['application'] = 'worksuite';
         $enableModules['version'] = $applicationVersion;
         $enableModules['worksuite'] = $applicationVersion;
 
         foreach ($plugins as $plugin) {
-            $enableModules[$plugin->getName()] = trim(
-                preg_replace(
-                    '/\s\s+/',
-                    ' ',
-                    !file_exists(File::get($plugin->getPath() . '/version.txt')) ? File::get($plugin->getPath() . '/version.txt') : '0'
-                )
-            );
+            $pluginVersionFile = $plugin->getPath() . '/version.txt';
+            $enableModules[$plugin->getName()] = File::exists($pluginVersionFile)
+                ? trim(preg_replace('/\s\s+/', ' ', File::get($pluginVersionFile)))
+                : '0';
         }
 
         if (!in_array('RestAPI', array_keys($plugins))) {
