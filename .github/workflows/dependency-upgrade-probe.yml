@@ -22,7 +22,7 @@ jobs:
           php-version: '8.2'
           tools: composer:v2
           coverage: none
-      - name: Prepare secure constraints in worktree only
+      - name: Prepare Laravel 10 compatible secure constraints
         shell: bash
         run: |
           python3 <<'PY'
@@ -31,17 +31,29 @@ jobs:
           p=Path('composer.json')
           d=json.loads(p.read_text())
           r=d['require']
+          # Remove package currently flagged by Composer's malware filter.
           r.pop('laravel-lang/lang', None)
-          r['laravel/framework']='^12.61.1'
-          r['laravel/sanctum']='^4.0'
+          # Stay on Laravel 10 because current Froiden REST API + Telegram channel
+          # dependencies do not resolve on Laravel 12. Patch everything that can
+          # be safely upgraded within this major first.
+          r['laravel/framework']='^10.0'
           r['barryvdh/laravel-dompdf']='^3.1.2'
           r['dompdf/dompdf']='^3.1.6'
           r['barryvdh/laravel-translation-manager']='^0.6.8'
           r['guzzlehttp/guzzle']='^7.15.2'
-          d['require-dev']['phpunit/phpunit']='^11.5.50'
+          r['guzzlehttp/psr7']='^2.12.3'
+          r['league/commonmark']='^2.9.0'
+          r['phpoffice/phpspreadsheet']='^1.30.6'
+          r['mtdowling/jmespath.php']='^2.9.1'
+          r['aws/aws-sdk-php']='^3.371.4'
+          r['google/protobuf']='^4.33.6'
+          r['phpseclib/phpseclib']='^3.0.54'
+          r['setasign/fpdi']='^2.6.7'
+          d['require-dev']['phpunit/phpunit']='^10.5.62'
+          d['require-dev']['psy/psysh']='^0.12.19'
           p.write_text(json.dumps(d, indent=4, ensure_ascii=False)+'\n')
           PY
-      - name: Resolve full secure dependency graph
+      - name: Resolve patched Laravel 10 dependency graph
         run: composer update --with-all-dependencies --no-scripts --no-interaction --prefer-dist
       - name: Validate resolved Composer files
         run: composer validate --no-check-publish
