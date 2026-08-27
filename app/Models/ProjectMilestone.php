@@ -77,15 +77,32 @@ class ProjectMilestone extends BaseModel
 
     public function completeTasks(): HasMany
     {
+        $relation = $this->hasMany(Task::class, 'milestone_id');
         $taskBoardColumn = TaskboardColumn::completeColumn();
-        return $this->hasMany(Task::class, 'milestone_id')->where('tasks.board_column_id', $taskBoardColumn->id);
+
+        if (is_null($taskBoardColumn)) {
+            return $relation->whereRaw('1 = 0');
+        }
+
+        return $relation->where('tasks.board_column_id', $taskBoardColumn->id);
     }
 
     public function completionPercent()
     {
-        $taskBoardColumn = TaskboardColumn::completeColumn();
         $tasks = $this->tasks()->count();
+
+        if ($tasks === 0) {
+            return 0;
+        }
+
+        $taskBoardColumn = TaskboardColumn::completeColumn();
+
+        if (is_null($taskBoardColumn)) {
+            return 0;
+        }
+
         $completedTasks = $this->tasks()->where('tasks.board_column_id', $taskBoardColumn->id)->count();
+
         return ($completedTasks / $tasks) * 100;
     }
 
