@@ -2,55 +2,52 @@
 
 namespace App\Http\Controllers\Payment;
 
-use Stripe\Stripe;
 use App\Helper\Reply;
-use App\Models\Invoice;
-use Illuminate\Http\Request;
-use App\Traits\MakePaymentTrait;
+use App\Helper\StripeAmount;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Session;
+use App\Models\Invoice;
 use App\Models\PaymentGatewayCredentials;
+use App\Traits\MakePaymentTrait;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Session;
+use Stripe\PaymentIntent;
+use Stripe\Stripe;
 
 class StripeController extends Controller
 {
     use MakePaymentTrait;
 
-    /**
-     * Create a new controller instance.
-     *
-     * @return void
-     */
     public function __construct()
     {
         parent::__construct();
-
-        $stripeCredentials = PaymentGatewayCredentials::first();
-
-        /** setup Stripe credentials **/
-        Stripe::setApiKey($stripeCredentials->stripe_mode == 'test' ? $stripeCredentials->test_stripe_secret : $stripeCredentials->live_stripe_secret);
         $this->pageTitle = __('app.stripe');
     }
 
-    /**
-     * Store a details of payment with paypal.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
     public function paymentWithStripe(Request $request, $id)
     {
         $redirectRoute = 'invoices.show';
-        $invoice = Invoice::findOrFail($id);
+        $invoice = Invoice::with(['currency', 'company'])->findOrFail($id);
         $param = 'invoice';
-        $paymentIntentId = $request->paymentIntentId;
 
-        if(isset($request->type) && $request->type == 'order'){
+        if ($request->type === 'order') {
             $redirectRoute = 'orders.show';
             $param = 'order';
-            $invoice = Invoice::where('order_id', $id)->latest()->first();
+            $invoice = Invoice::with(['currency', 'company'])->where('order_id', $id)->latest()->firstOrFail();
         }
 
-        $this->makePayment('Stripe', $invoice->amountDue(), $invoice, $paymentIntentId, 'complete');
+        $verification = $this->verifyPaymentIntent($invoice, $request->paymentIntentId);
+
+        if ($verification !== true) {
+            return Reply::error($verification);
+        }
+
+        $amount = $invoice->amountDue();
+
+        if ($amount <= 0) {
+            return Reply::error(__('messages.invoiceAlreadyPaid'));
+        }
+
+        $this->makePayment('Stripe', $amount, $invoice, $request->paymentIntentId, 'complete');
         $invoice->status = 'paid';
         $invoice->save();
 
@@ -59,24 +56,93 @@ class StripeController extends Controller
 
     public function paymentWithStripePublic(Request $request, $hash)
     {
-        $redirectRoute = 'front.invoice';
-        $paymentIntentId = $request->paymentIntentId;
+        $invoice = Invoice::with(['currency', 'company'])->where('hash', $hash)->firstOrFail();
+        $verification = $this->verifyPaymentIntent($invoice, $request->paymentIntentId);
 
-        $invoice = Invoice::where('hash', $hash)->first();
+        if ($verification !== true) {
+            return Reply::error($verification);
+        }
 
-        $this->makePayment('Stripe', $invoice->amountDue(), $invoice, $paymentIntentId, 'complete');
+        $amount = $invoice->amountDue();
+
+        if ($amount <= 0) {
+            return Reply::error(__('messages.invoiceAlreadyPaid'));
+        }
+
+        $this->makePayment('Stripe', $amount, $invoice, $request->paymentIntentId, 'complete');
         $invoice->status = 'paid';
         $invoice->save();
-        return $this->makeStripePayment($redirectRoute, $hash, 'hash');
+
+        return $this->makeStripePayment('front.invoice', $hash, 'hash');
     }
 
-    private function makeStripePayment($redirectRoute, $id , $param = null)
+    private function verifyPaymentIntent(Invoice $invoice, ?string $paymentIntentId): bool|string
+    {
+        if (!$paymentIntentId) {
+            return 'Stripe payment reference is missing.';
+        }
+
+        if (!$invoice->currency || !$invoice->currency->currency_code) {
+            return 'Invoice currency is not configured.';
+        }
+
+        $credentials = PaymentGatewayCredentials::where('company_id', $invoice->company_id)->first();
+
+        if (!$credentials || $credentials->stripe_status !== 'active') {
+            return 'Stripe payment is not enabled for this company.';
+        }
+
+        $stripeSecret = $credentials->stripe_mode === 'test'
+            ? $credentials->test_stripe_secret
+            : $credentials->live_stripe_secret;
+
+        if (!$stripeSecret) {
+            return 'Stripe payment credentials are incomplete.';
+        }
+
+        try {
+            Stripe::setApiKey($stripeSecret);
+            $intent = PaymentIntent::retrieve($paymentIntentId);
+        }
+        catch (\Throwable $e) {
+            report($e);
+            return 'Unable to verify the Stripe payment.';
+        }
+
+        $currency = strtoupper($invoice->currency->currency_code);
+        $expectedAmount = StripeAmount::toMinorUnits($invoice->amountDue(), $currency);
+        $metadataInvoiceId = $intent->metadata['invoice_id'] ?? null;
+
+        if ($intent->status !== 'succeeded') {
+            return 'Stripe payment has not succeeded.';
+        }
+
+        if (strtoupper((string) $intent->currency) !== $currency) {
+            return 'Stripe payment currency does not match the invoice.';
+        }
+
+        if ((int) $intent->amount !== $expectedAmount || (int) $intent->amount_received < $expectedAmount) {
+            return 'Stripe payment amount does not match the invoice.';
+        }
+
+        if ((int) $metadataInvoiceId !== (int) $invoice->id) {
+            return 'Stripe payment does not belong to this invoice.';
+        }
+
+        return true;
+    }
+
+    private function makeStripePayment($redirectRoute, $id, $param = null)
     {
         $param = $param ?? 'invoice';
-        $signedUrl = url()->temporarySignedRoute($redirectRoute, now()->addDays(\App\Models\GlobalSetting::SIGNED_ROUTE_EXPIRY), [$param => $id]);
+        $signedUrl = url()->temporarySignedRoute(
+            $redirectRoute,
+            now()->addDays(\App\Models\GlobalSetting::SIGNED_ROUTE_EXPIRY),
+            [$param => $id]
+        );
+
         Session::put('success', __('messages.paymentSuccessful'));
-        
+
         return Reply::redirect($signedUrl, __('messages.paymentSuccessful'));
     }
-
 }
