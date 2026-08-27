@@ -39,6 +39,7 @@ class Kernel extends HttpKernel
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\ValidatePublicDocumentAccess::class,
             \App\Http\Middleware\EnforceSensitiveProjectPermissions::class,
             \App\Http\Middleware\ValidateTaskStatusChange::class,
             \App\Http\Middleware\ValidateStripeInvoicePayment::class,
