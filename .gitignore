@@ -41,4 +41,4 @@ vendor/chillerlan/php-cache~HEAD
 vendor/chillerlan/php-settings-container~HEAD
 public/css/app-custom.css
 public/css/theme-custom.css
-.gitmodules
+.gitmodules/storage/temp/
