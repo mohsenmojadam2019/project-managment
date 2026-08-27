@@ -31,12 +31,12 @@ jobs:
       - name: Validate composer.json
         run: composer validate --no-check-publish
 
-      - name: Audit locked PHP dependencies
-        run: composer audit --locked --no-interaction
-
       - name: Check PHP syntax
         shell: bash
         run: |
           set -euo pipefail
           find app routes config database tests -type f -name '*.php' -print0 \
             | xargs -0 -n1 php -l
+
+      - name: Audit locked PHP dependencies
+        run: composer audit --locked --no-interaction
