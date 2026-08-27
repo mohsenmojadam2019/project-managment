@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Lead;
 
 use App\Http\Requests\CoreRequest;
-use App\Models\Company;
 use App\Traits\CustomFieldsRequestTrait;
 use Illuminate\Validation\Rule;
 
@@ -19,7 +18,6 @@ class StorePublicLead extends CoreRequest
     public function rules()
     {
         $companyId = (int) $this->input('company_id');
-        $company = Company::find($companyId);
 
         $rules = [
             'company_id' => ['required', 'integer', 'exists:companies,id'],
@@ -45,7 +43,7 @@ class StorePublicLead extends CoreRequest
         $rules = $this->customFieldRules($rules);
 
         if (global_setting()->google_recaptcha_status == 'active'
-            && global_setting()->ticket_form_google_captcha == 1
+            && global_setting()->lead_form_google_captcha == 1
             && global_setting()->google_recaptcha_v2_status == 'active') {
             $rules['g-recaptcha-response'] = 'required';
         }
