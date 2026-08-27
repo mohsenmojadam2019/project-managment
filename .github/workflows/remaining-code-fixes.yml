@@ -1,0 +1,183 @@
+name: Apply remaining code fixes
+
+on:
+  push:
+    branches:
+      - chatgpt/audit-fixes-light-dashboard
+    paths:
+      - '.github/workflows/remaining-code-fixes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/audit-fixes-light-dashboard
+
+      - name: Apply deterministic fixes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one exact match, found {count}')
+              p.write_text(text.replace(old, new, 1))
+
+          def regex_once(path, pattern, replacement):
+              p = Path(path)
+              text = p.read_text()
+              new, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one regex match, found {count}')
+              p.write_text(new)
+
+          # HomeController: make Stripe flow intrinsically safe even if middleware is bypassed.
+          regex_once(
+              'app/Http/Controllers/HomeController.php',
+              r"    public function saveStripeDetail\(StoreStripeDetail \$request\)\n    \{.*?\n    \}\n\n    public function downloadInvoice",
+              '''    public function saveStripeDetail(StoreStripeDetail $request)\n    {\n        $id = $request->invoice_id;\n        $this->invoice = Invoice::with(['client', 'project', 'project.client', 'currency'])->findOrFail($id);\n        $this->company = $this->invoice->company;\n\n        if ($this->invoice->amountDue() <= 0) {\n            return Reply::error(__('messages.invoiceAlreadyPaid'));\n        }\n\n        if (!$this->company) {\n            return Reply::error('Invoice company is not available.');\n        }\n\n        $this->credentials = PaymentGatewayCredentials::where('company_id', $this->company->id)->first();\n\n        $client = $this->invoice->client;\n\n        if (!$client && $this->invoice->project) {\n            $client = $this->invoice->project->client;\n        }\n\n        if (!$client || !$client->email) {\n            return Reply::error('A valid invoice client email is required for Stripe payment.');\n        }\n\n        $stripeSecret = $this->credentials\n            ? ($this->credentials->stripe_mode == 'test' ? $this->credentials->test_stripe_secret : $this->credentials->live_stripe_secret)\n            : null;\n\n        if (!$stripeSecret) {\n            return Reply::error('Stripe payment is not configured for this company.');\n        }\n\n        if (!$this->invoice->currency || !$this->invoice->currency->currency_code) {\n            return Reply::error('A valid invoice currency is required for Stripe payment.');\n        }\n\n        try {\n            Stripe::setApiKey($stripeSecret);\n\n            $totalAmount = $this->invoice->amountDue();\n            $customer = \\Stripe\\Customer::create([\n                'email' => $client->email,\n                'name' => $request->clientName,\n                'address' => [\n                    'line1' => $request->clientName,\n                    'city' => $request->city,\n                    'state' => $request->state,\n                    'country' => $request->country,\n                ],\n            ]);\n\n            $this->intent = \\Stripe\\PaymentIntent::create([\n                'amount' => (int) round($totalAmount * 100),\n                'currency' => $this->invoice->currency->currency_code,\n                'customer' => $customer->id,\n                'setup_future_usage' => 'off_session',\n                'payment_method_types' => ['card'],\n                'description' => $this->invoice->invoice_number . ' Payment',\n                'metadata' => ['integration_check' => 'accept_a_payment', 'invoice_id' => $id]\n            ]);\n        }\n        catch (\\Throwable $e) {\n            report($e);\n            return Reply::error('Unable to initialize Stripe payment. Please try again.');\n        }\n\n        $this->customerDetail = [\n            'email' => $client->email,\n            'name' => $request->clientName,\n            'line1' => $request->clientName,\n            'city' => $request->city,\n            'state' => $request->state,\n            'country' => $request->country,\n        ];\n\n        $view = view('public-payment.stripe.stripe-payment', $this->data)->render();\n\n        return Reply::dataOnly(['view' => $view, 'intent' => $this->intent]);\n    }\n\n    public function downloadInvoice'''
+          )
+
+          # Task model: null-safe dates/status columns and correct permission ownership.
+          replace_once(
+              'app/Models/Task.php',
+              "protected $with = ['company:id,date_format', 'project:id,project_name,need_approval_by_admin,project_short_code', 'users:id,name,image'];",
+              "protected $with = ['company:id,date_format', 'project:id,project_name,need_approval_by_admin,project_short_code,client_id,project_admin', 'users:id,name,image'];"
+          )
+
+          replace_once(
+              'app/Models/Task.php',
+              """    public function scopePending($query)\n    {\n        $taskBoardColumn = TaskboardColumn::completeColumn();\n\n        return $query->where('tasks.board_column_id', '<>', $taskBoardColumn->id);\n    }""",
+              """    public function scopePending($query)\n    {\n        $taskBoardColumn = TaskboardColumn::completeColumn();\n\n        return $taskBoardColumn\n            ? $query->where('tasks.board_column_id', '<>', $taskBoardColumn->id)\n            : $query;\n    }"""
+          )
+
+          replace_once(
+              'app/Models/Task.php',
+              """    public function getDueOnAttribute()\n    {\n        if (is_null($this->due_date)) {\n            return '';\n        }\n\n        // company relation is null\n        if (is_null($this->company_id)) {\n            return $this->due_date->format('Y-m-d');\n        }\n\n        return $this->due_date->format($this->company->date_format);\n\n    }\n\n    public function getCreateOnAttribute()\n    {\n        if (is_null($this->start_date)) {\n            return '';\n        }\n\n        return $this->start_date->format($this->company->date_format);\n    }""",
+              """    public function getDueOnAttribute()\n    {\n        if (is_null($this->due_date)) {\n            return '';\n        }\n\n        $dateFormat = optional($this->company)->date_format ?: 'Y-m-d';\n\n        return $this->due_date->format($dateFormat);\n    }\n\n    public function getCreateOnAttribute()\n    {\n        if (is_null($this->start_date)) {\n            return '';\n        }\n\n        $dateFormat = optional($this->company)->date_format ?: 'Y-m-d';\n\n        return $this->start_date->format($dateFormat);\n    }"""
+          )
+
+          replace_once(
+              'app/Models/Task.php',
+              """    public static function projectOpenTasks($projectId, $userID = null)\n    {\n        $taskBoardColumn = TaskboardColumn::completeColumn();\n        $projectTask = Task::join('task_users', 'task_users.task_id', '=', 'tasks.id')\n            ->where('tasks.board_column_id', '<>', $taskBoardColumn->id)\n            ->select('tasks.*');""",
+              """    public static function projectOpenTasks($projectId, $userID = null)\n    {\n        $taskBoardColumn = TaskboardColumn::completeColumn();\n        $projectTask = Task::join('task_users', 'task_users.task_id', '=', 'tasks.id')\n            ->select('tasks.*');\n\n        if ($taskBoardColumn) {\n            $projectTask->where('tasks.board_column_id', '<>', $taskBoardColumn->id);\n        }"""
+          )
+
+          replace_once(
+              'app/Models/Task.php',
+              """    public static function projectCompletedTasks($projectId)\n    {\n        $taskBoardColumn = TaskboardColumn::completeColumn();\n\n        return Task::where('tasks.board_column_id', $taskBoardColumn->id)\n            ->where('project_id', $projectId)\n            ->get();\n    }""",
+              """    public static function projectCompletedTasks($projectId)\n    {\n        $taskBoardColumn = TaskboardColumn::completeColumn();\n\n        if (!$taskBoardColumn) {\n            return collect([]);\n        }\n\n        return Task::where('tasks.board_column_id', $taskBoardColumn->id)\n            ->where('project_id', $projectId)\n            ->get();\n    }"""
+          )
+
+          replace_once(
+              'app/Models/Task.php',
+              """    public function hasOwnedPermission($permission): bool\n    {\n        $taskUsers = $this->users->pluck('id')->toArray();\n        $userId = UserService::getUserId();\n        return $permission == 'owned' && (in_array(user()->id, $taskUsers) || in_array($userId, $taskUsers) || in_array('client', user_roles()));\n    }""",
+              """    public function hasOwnedPermission($permission): bool\n    {\n        $taskUsers = $this->users->pluck('id')->toArray();\n        $userId = UserService::getUserId();\n        $isProjectClient = in_array('client', user_roles())\n            && $this->project\n            && (int) $this->project->client_id === (int) user()->id;\n\n        return $permission == 'owned'\n            && (in_array(user()->id, $taskUsers) || in_array($userId, $taskUsers) || $isProjectClient);\n    }"""
+          )
+
+          replace_once(
+              'app/Models/Task.php',
+              """        return $permission == 'both' && (in_array(user()->id, $taskUsers) || ($this->added_by == $id || $this->added_by == $userId) || in_array('client', user_roles()));\n    }\n\n    public function projectAdmin(): bool\n    {\n        return $this->project_admin === user()->id;\n    }""",
+              """        $isProjectClient = in_array('client', user_roles())\n            && $this->project\n            && (int) $this->project->client_id === (int) user()->id;\n\n        return $permission == 'both'\n            && (in_array(user()->id, $taskUsers) || ($this->added_by == $id || $this->added_by == $userId) || $isProjectClient);\n    }\n\n    public function projectAdmin(): bool\n    {\n        return $this->project && (int) $this->project->project_admin === (int) user()->id;\n    }"""
+          )
+
+          # Project controller: comparison typo and switch typo.
+          replace_once(
+              'app/Http/Controllers/ProjectController.php',
+              "if (($this->editPermission == 'all' || $this->editPermission = 'owned') || $this->editProjectMembersPermission == 'all') {",
+              "if (($this->editPermission == 'all' || $this->editPermission == 'owned') || $this->editProjectMembersPermission == 'all') {"
+          )
+          replace_once(
+              'app/Http/Controllers/ProjectController.php',
+              "case 'miroboard';",
+              "case 'miroboard':"
+          )
+
+          # Public estimate page: all client/clientDetails reads must tolerate either relation being absent.
+          estimate = Path('resources/views/estimate.blade.php')
+          text = estimate.read_text()
+          if '$estimate->clientDetails->' not in text and '$estimate->client->' not in text:
+              raise SystemExit('estimate.blade.php: expected client relation dereferences not found')
+          text = text.replace('$estimate->clientDetails->', 'optional($estimate->clientDetails)->')
+          text = text.replace('$estimate->client->', 'optional($estimate->client)->')
+          estimate.write_text(text)
+
+          # Task controller: remove remaining null-dereferences around configurable board columns.
+          replace_once(
+              'app/Http/Controllers/TaskController.php',
+              "$taskBoardColumn = TaskboardColumn::where('slug', $status)->first();\n        $task->board_column_id = $taskBoardColumn->id;",
+              "$taskBoardColumn = TaskboardColumn::where('slug', $status)->firstOrFail();\n        $task->board_column_id = $taskBoardColumn->id;"
+          )
+          replace_once(
+              'app/Http/Controllers/TaskController.php',
+              "if($request->board_column_id == $waitingApprovalTaskBoardColumn->id){",
+              "if($waitingApprovalTaskBoardColumn && $request->board_column_id == $waitingApprovalTaskBoardColumn->id){"
+          )
+          replace_once(
+              'app/Http/Controllers/TaskController.php',
+              "return Reply::dataOnly(['taskCount' => $subTask, 'lastStatus' => $task->boardColumn->slug]);",
+              "return Reply::dataOnly(['taskCount' => $subTask, 'lastStatus' => optional($task->boardColumn)->slug]);"
+          )
+          replace_once(
+              'app/Http/Controllers/TaskController.php',
+              "$taskBoardColumn = TaskboardColumn::where('slug', 'waiting_approval')->first();\n\n        $task->approval_send = $request->isApproval ?? 0;",
+              "$taskBoardColumn = TaskboardColumn::where('slug', 'waiting_approval')->firstOrFail();\n\n        $task->approval_send = $request->isApproval ?? 0;"
+          )
+          replace_once(
+              'app/Http/Controllers/TaskController.php',
+              "$taskBoardColumn = TaskboardColumn::where('slug', $request->taskStatus)->first();\n        $task->board_column_id = $taskBoardColumn->id;",
+              "$taskBoardColumn = TaskboardColumn::where('slug', $request->taskStatus)->firstOrFail();\n        $task->board_column_id = $taskBoardColumn->id;"
+          )
+          replace_once(
+              'app/Http/Controllers/TaskController.php',
+              """        $completedTaskColumn = TaskboardColumn::where('slug', '=', 'completed')->first();\n\n        $tasks = Task::where('board_column_id', '<>', $completedTaskColumn->id)->whereNotNull('due_date');\n\n        if ($id != 0 && $id != '') {\n            $tasks = $tasks->where('project_id', $id);\n        }\n\n        $tasks = $completedTaskColumn ? $tasks->get() : [];""",
+              """        $completedTaskColumn = TaskboardColumn::where('slug', '=', 'completed')->first();\n\n        if (!$completedTaskColumn) {\n            return Reply::dataOnly(['status' => 'success', 'data' => $options]);\n        }\n\n        $tasks = Task::where('board_column_id', '<>', $completedTaskColumn->id)->whereNotNull('due_date');\n\n        if ($id != 0 && $id != '') {\n            $tasks = $tasks->where('project_id', $id);\n        }\n\n        $tasks = $tasks->get();"""
+          )
+
+          # Both waiting-approval counters must tolerate a missing configured column.
+          p = Path('app/Http/Controllers/TaskController.php')
+          text = p.read_text()
+          text = text.replace("$taskBoardColumn->id", "$taskBoardColumn?->id")
+          p.write_text(text)
+          PY
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+
+      - name: Validate Composer manifest
+        run: composer validate --no-check-publish
+
+      - name: Check PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find app routes config database tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/Http/Controllers/HomeController.php app/Http/Controllers/ProjectController.php app/Http/Controllers/TaskController.php app/Models/Task.php resources/views/estimate.blade.php
+          git commit -m 'fix remaining controller model and estimate bugs'
+          git push origin HEAD:chatgpt/audit-fixes-light-dashboard
