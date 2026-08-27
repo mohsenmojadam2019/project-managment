@@ -1,0 +1,118 @@
+name: Apply final task controller fixes
+
+on:
+  push:
+    branches:
+      - chatgpt/audit-fixes-light-dashboard
+    paths:
+      - '.github/workflows/final-task-controller-fixes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/audit-fixes-light-dashboard
+
+      - name: Patch TaskController safely
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('app/Http/Controllers/TaskController.php')
+          text = path.read_text()
+
+          def replace_once(old, new):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected one match, found {count}: {old[:120]!r}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              """        DB::beginTransaction();
+        $ganttTaskArray = [];
+        $gantTaskLinkArray = [];
+
+        $taskBoardColumn = TaskboardColumn::where('slug', 'incomplete')->first();
+        $task = new Task();""",
+              """        $taskBoardColumn = TaskboardColumn::where('slug', 'incomplete')->first();
+
+        if (!$taskBoardColumn) {
+            return Reply::error(__('messages.selectStatus'));
+        }
+
+        DB::beginTransaction();
+        $ganttTaskArray = [];
+        $gantTaskLinkArray = [];
+
+        $task = new Task();"""
+          )
+
+          replace_once(
+              """            if (!is_null($dependentTask->due_date) && !is_null($dueDate) && $dependentTask->due_date->greaterThan($dueDate)) {
+                /* @phpstan-ignore-line */
+                return Reply::error(__('messages.taskDependentDate'));
+            }""",
+              """            if (!is_null($dependentTask->due_date) && !is_null($dueDate) && $dependentTask->due_date->greaterThan($dueDate)) {
+                DB::rollBack();
+                /* @phpstan-ignore-line */
+                return Reply::error(__('messages.taskDependentDate'));
+            }"""
+          )
+
+          replace_once(
+              """        if($request->select_value == 'Waiting Approval'){
+
+            $taskBoardColumn = TaskboardColumn::where('column_name', $request->select_value)->where('company_id', company()->id)->first();
+            $task->board_column_id = $taskBoardColumn->id;
+            $task->approval_send = 1;
+        }""",
+              """        if ($request->select_value == 'Waiting Approval') {
+            $taskBoardColumn = TaskboardColumn::where('column_name', $request->select_value)
+                ->where('company_id', company()->id)
+                ->first();
+
+            if (!$taskBoardColumn) {
+                return Reply::error(__('messages.selectStatus'));
+            }
+
+            $task->board_column_id = $taskBoardColumn->id;
+            $task->approval_send = 1;
+        }"""
+          )
+
+          replace_once(
+              "$task->approval_send = $request->isApproval ?? 0;",
+              "$task->approval_send = $request->boolean('isApproval') ? 1 : 0;"
+          )
+
+          path.write_text(text)
+          PY
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: PHP syntax check
+        run: php -l app/Http/Controllers/TaskController.php
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/Http/Controllers/TaskController.php
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'harden task controller edge cases'
+          git push origin HEAD:chatgpt/audit-fixes-light-dashboard
