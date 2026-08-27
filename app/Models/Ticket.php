@@ -155,6 +155,10 @@ class Ticket extends BaseModel
         $latestReplyUser = $this->latestReply?->user;
         $totalReply = $this->reply()->count();
 
+        if ($totalReply === 0) {
+            return '';
+        }
+
         $selfReplyCount = $this->reply()->where('user_id', $latestReplyUser?->id)->count();
 
         if ($totalReply > 1 && ($totalReply !== $selfReplyCount) && $latestReplyUser && $latestReplyUser->id !== user()->id) {
