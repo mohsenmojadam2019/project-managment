@@ -58,16 +58,8 @@ class StoreTask extends CoreRequest
             'dependent_task_id' => ['required_with:dependent', 'nullable', 'integer'],
         ];
 
-        if ($waitingApproval) {
+        if ($waitingApproval && (!$project || $project->need_approval_by_admin == 0)) {
             $rules['board_column_id'][] = Rule::notIn([$waitingApproval->id]);
-        }
-
-        if ($project && $project->need_approval_by_admin != 0 && $waitingApproval) {
-            // Waiting approval is allowed only for projects configured for approval.
-            $rules['board_column_id'] = array_values(array_filter(
-                $rules['board_column_id'],
-                fn ($rule) => !($rule instanceof \Illuminate\Validation\Rules\NotIn)
-            ));
         }
 
         if (in_array('client', user_roles(), true)) {
