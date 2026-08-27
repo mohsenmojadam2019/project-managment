@@ -54,7 +54,7 @@ jobs:
           p.write_text(json.dumps(d, indent=4, ensure_ascii=False)+'\n')
           PY
       - name: Resolve stable patched dependency graph
-        run: composer update --with-all-dependencies --no-scripts --no-interaction --prefer-dist
+        run: composer update --with-all-dependencies --no-scripts --no-interaction --prefer-dist --no-security-blocking
       - name: Reject unexpected dev dependencies
         shell: bash
         run: |
