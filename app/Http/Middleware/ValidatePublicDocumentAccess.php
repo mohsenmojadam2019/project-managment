@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Contract;
 use App\Models\Estimate;
+use App\Models\Proposal;
 use App\Scopes\ActiveScope;
 use Closure;
 use Illuminate\Http\Request;
@@ -33,6 +34,14 @@ class ValidatePublicDocumentAccess
             return $next($request);
         }
 
+        if ($routeName === 'front.proposal') {
+            $proposal = Proposal::where('hash', $route->parameter('hash'))->firstOrFail();
+
+            $request->session()->put($this->sessionKey('proposal', $proposal->id), true);
+
+            return $next($request);
+        }
+
         if ($routeName === 'front.contract.sign') {
             abort_unless(
                 $request->session()->get($this->sessionKey('contract', $route->parameter('id')), false),
@@ -43,6 +52,13 @@ class ValidatePublicDocumentAccess
         if (in_array($routeName, ['front.estimate.accept', 'front.estimate.decline'], true)) {
             abort_unless(
                 $request->session()->get($this->sessionKey('estimate', $route->parameter('id')), false),
+                403
+            );
+        }
+
+        if ($routeName === 'front.proposal_action') {
+            abort_unless(
+                $request->session()->get($this->sessionKey('proposal', $route->parameter('id')), false),
                 403
             );
         }
