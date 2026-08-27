@@ -33,18 +33,10 @@ jobs:
         run: |
           python3 <<'PY'
           from pathlib import Path
-
           p = Path('app/Helper/start.php')
           text = p.read_text()
-          old = """        if (in_array(config('filesystems.default'), StorageSetting::S3_COMPATIBLE_STORAGE)) {
-            // Check if the URL is already cached
-"""
-          new = """        $diskName = config('filesystems.default');
-        $diskDriver = config("filesystems.disks.{$diskName}.driver");
-
-        if (in_array($diskName, StorageSetting::S3_COMPATIBLE_STORAGE, true) && $diskDriver === 's3') {
-            // Check if the URL is already cached
-"""
+          old = "        if (in_array(config('filesystems.default'), StorageSetting::S3_COMPATIBLE_STORAGE)) {\n            // Check if the URL is already cached\n"
+          new = "        $diskName = config('filesystems.default');\n        $diskDriver = config(\"filesystems.disks.{$diskName}.driver\");\n\n        if (in_array($diskName, StorageSetting::S3_COMPATIBLE_STORAGE, true) && $diskDriver === 's3') {\n            // Check if the URL is already cached\n"
           if old not in text:
               raise SystemExit('Expected asset_url_local_s3 guard not found')
           p.write_text(text.replace(old, new, 1))
@@ -56,22 +48,14 @@ jobs:
           python3 <<'PY'
           import json
           from pathlib import Path
-
           p = Path('composer.json')
           d = json.loads(p.read_text())
           r = d['require']
           rd = d['require-dev']
-
-          for package in (
-              'laravel-lang/lang',
-              'macsidigital/laravel-zoom',
-              'laravelcollective/html',
-          ):
+          for package in ('laravel-lang/lang', 'macsidigital/laravel-zoom', 'laravelcollective/html'):
               r.pop(package, None)
-
           d['minimum-stability'] = 'dev'
           d['prefer-stable'] = True
-
           secure = {
               'laravel/framework': '^10.50.3',
               'laravel/cashier': '^16.7',
@@ -102,10 +86,8 @@ jobs:
               'ivanomatteo/laravel-device-tracking': 'dev-master#26d62d7',
           }
           r.update(secure)
-
           rd['phpunit/phpunit'] = '^10.5.62'
           rd['psy/psysh'] = '^0.12.19'
-
           config = d.setdefault('config', {})
           config['policy'] = {
               'advisories': {
@@ -120,12 +102,8 @@ jobs:
                       'GHSA-crmm-hgp2-wgrp': 'Application temporaryUrl calls are restricted to explicitly S3-backed disks; the vulnerable Laravel local filesystem temporary URL path is not used.',
                   },
               },
-              'abandoned': {
-                  'block': False,
-                  'audit': 'report',
-              },
+              'abandoned': {'block': False, 'audit': 'report'},
           }
-
           p.write_text(json.dumps(d, indent=4, ensure_ascii=False) + '\n')
           PY
 
@@ -143,7 +121,6 @@ jobs:
         run: |
           python3 <<'PY'
           from pathlib import Path
-
           roots = [Path(p) for p in ('app', 'routes', 'config', 'database', 'tests', 'Modules') if Path(p).exists()]
           temp_urls = []
           temp_uploads = []
@@ -154,20 +131,16 @@ jobs:
                       temp_urls.append(str(path))
                   if 'temporaryUploadUrl(' in text:
                       temp_uploads.append(str(path))
-
           if temp_uploads:
               raise SystemExit('temporaryUploadUrl is not allowed on Laravel 10: ' + ', '.join(temp_uploads))
-
           unexpected = [p for p in temp_urls if p != 'app/Helper/start.php']
           if unexpected:
               raise SystemExit('Unexpected temporaryUrl usage: ' + ', '.join(unexpected))
-
           helper = Path('app/Helper/start.php').read_text()
           call_index = helper.find('temporaryUrl(')
           if call_index < 0:
               raise SystemExit('Expected S3 temporaryUrl call not found')
-          guard_index = helper.rfind("$diskDriver === 's3'", 0, call_index)
-          if guard_index < 0:
+          if helper.rfind("$diskDriver === 's3'", 0, call_index) < 0:
               raise SystemExit('temporaryUrl call is not protected by an explicit S3 driver guard')
           PY
 
