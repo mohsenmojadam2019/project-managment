@@ -162,7 +162,7 @@ class Task extends BaseModel
     ];
     protected $appends = ['due_on', 'create_on'];
     protected $guarded = ['id'];
-    protected $with = ['company:id,date_format', 'project:id,project_name,need_approval_by_admin,project_short_code', 'users:id,name,image'];
+    protected $with = ['company:id,date_format', 'project:id,project_name,need_approval_by_admin,project_short_code,client_id,project_admin', 'users:id,name,image'];
 
     const CUSTOM_FIELD_MODEL = 'App\Models\Task';
 
@@ -299,7 +299,9 @@ class Task extends BaseModel
     {
         $taskBoardColumn = TaskboardColumn::completeColumn();
 
-        return $query->where('tasks.board_column_id', '<>', $taskBoardColumn->id);
+        return $taskBoardColumn
+            ? $query->where('tasks.board_column_id', '<>', $taskBoardColumn->id)
+            : $query;
     }
 
     /**
@@ -311,13 +313,7 @@ class Task extends BaseModel
             return '';
         }
 
-        // company relation is null
-        if (is_null($this->company_id)) {
-            return $this->due_date->format('Y-m-d');
-        }
-
-        return $this->due_date->format($this->company->date_format);
-
+        return $this->due_date->format(optional($this->company)->date_format ?: 'Y-m-d');
     }
 
     public function getCreateOnAttribute()
@@ -326,7 +322,7 @@ class Task extends BaseModel
             return '';
         }
 
-        return $this->start_date->format($this->company->date_format);
+        return $this->start_date->format(optional($this->company)->date_format ?: 'Y-m-d');
     }
 
     public function getIsTaskUserAttribute()
@@ -353,8 +349,11 @@ class Task extends BaseModel
     {
         $taskBoardColumn = TaskboardColumn::completeColumn();
         $projectTask = Task::join('task_users', 'task_users.task_id', '=', 'tasks.id')
-            ->where('tasks.board_column_id', '<>', $taskBoardColumn->id)
             ->select('tasks.*');
+
+        if ($taskBoardColumn) {
+            $projectTask->where('tasks.board_column_id', '<>', $taskBoardColumn->id);
+        }
 
         if ($userID) {
             $projectIssue = $projectTask->where('task_users.user_id', '=', $userID);
@@ -369,6 +368,10 @@ class Task extends BaseModel
     public static function projectCompletedTasks($projectId)
     {
         $taskBoardColumn = TaskboardColumn::completeColumn();
+
+        if (!$taskBoardColumn) {
+            return collect([]);
+        }
 
         return Task::where('tasks.board_column_id', $taskBoardColumn->id)
             ->where('project_id', $projectId)
@@ -567,7 +570,12 @@ class Task extends BaseModel
     {
         $taskUsers = $this->users->pluck('id')->toArray();
         $userId = UserService::getUserId();
-        return $permission == 'owned' && (in_array(user()->id, $taskUsers) || in_array($userId, $taskUsers) || in_array('client', user_roles()));
+        $isProjectClient = in_array('client', user_roles())
+            && $this->project
+            && (int) $this->project->client_id === (int) user()->id;
+
+        return $permission == 'owned'
+            && (in_array(user()->id, $taskUsers) || in_array($userId, $taskUsers) || $isProjectClient);
     }
 
     public function hasBothPermission($permission): bool
@@ -583,12 +591,17 @@ class Task extends BaseModel
             }
         }
 
-        return $permission == 'both' && (in_array(user()->id, $taskUsers) || ($this->added_by == $id || $this->added_by == $userId) || in_array('client', user_roles()));
+        $isProjectClient = in_array('client', user_roles())
+            && $this->project
+            && (int) $this->project->client_id === (int) user()->id;
+
+        return $permission == 'both'
+            && (in_array(user()->id, $taskUsers) || ($this->added_by == $id || $this->added_by == $userId) || $isProjectClient);
     }
 
     public function projectAdmin(): bool
     {
-        return $this->project_admin === user()->id;
+        return $this->project && (int) $this->project->project_admin === (int) user()->id;
     }
 
     public function canViewTicket(): bool

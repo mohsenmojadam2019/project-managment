@@ -515,7 +515,7 @@ class ProjectController extends AccountBaseController
         else{
             $this->employees = '';
 
-            if (($this->editPermission == 'all' || $this->editPermission = 'owned') || $this->editProjectMembersPermission == 'all') {
+            if (($this->editPermission == 'all' || $this->editPermission == 'owned') || $this->editProjectMembersPermission == 'all') {
                 $this->employees = User::allEmployees(null, false, ($this->editProjectMembersPermission == 'all' ? 'all' : null));
             }
         }
@@ -770,7 +770,7 @@ class ProjectController extends AccountBaseController
             return $this->timelogs($this->project->project_admin == $this->userId);
         case 'expenses':
             return $this->expenses();
-        case 'miroboard';
+        case 'miroboard':
             abort_403(!in_array($this->viewMiroboardPermission, ['all']) || !$this->project->enable_miroboard &&
                 ((!in_array('client', user_roles()) && !$this->project->client_access && $this->project->client_id != $this->userId)));
             $this->view = 'projects.ajax.miroboard';

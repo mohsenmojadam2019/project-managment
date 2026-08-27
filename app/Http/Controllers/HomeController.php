@@ -239,27 +239,38 @@ class HomeController extends Controller
     public function saveStripeDetail(StoreStripeDetail $request)
     {
         $id = $request->invoice_id;
-        $this->invoice = Invoice::with(['client', 'project', 'project.client'])->findOrFail($id);
+        $this->invoice = Invoice::with(['client', 'project', 'project.client', 'currency'])->findOrFail($id);
         $this->company = $this->invoice->company;
 
-        if ($this->invoice && $this->invoice->amountDue() == 0) {
-            Reply::error(__('messages.invoiceAlreadyPaid'));
+        if ($this->invoice->amountDue() <= 0) {
+            return Reply::error(__('messages.invoiceAlreadyPaid'));
+        }
+
+        if (!$this->company) {
+            return Reply::error('Invoice company is not available.');
         }
 
         $this->credentials = PaymentGatewayCredentials::where('company_id', $this->company->id)->first();
+        $client = $this->invoice->client ?: optional($this->invoice->project)->client;
 
-        $client = null;
-
-        if (!is_null($this->invoice->client_id)) {
-            $client = $this->invoice->client;
-        } else if (!is_null($this->invoice->project_id) && !is_null($this->invoice->project->client_id)) {
-            $client = $this->invoice->project->client;
+        if (!$client || !$client->email) {
+            return Reply::error('A valid invoice client email is required for Stripe payment.');
         }
 
-        if (($this->credentials->test_stripe_secret || $this->credentials->live_stripe_secret) && !is_null($client)) {
+        $stripeSecret = $this->credentials
+            ? ($this->credentials->stripe_mode == 'test' ? $this->credentials->test_stripe_secret : $this->credentials->live_stripe_secret)
+            : null;
 
-            Stripe::setApiKey($this->credentials->stripe_mode == 'test' ? $this->credentials->test_stripe_secret : $this->credentials->live_stripe_secret);
+        if (!$stripeSecret) {
+            return Reply::error('Stripe payment is not configured for this company.');
+        }
 
+        if (!$this->invoice->currency || !$this->invoice->currency->currency_code) {
+            return Reply::error('A valid invoice currency is required for Stripe payment.');
+        }
+
+        try {
+            Stripe::setApiKey($stripeSecret);
             $totalAmount = $this->invoice->amountDue();
 
             $customer = \Stripe\Customer::create([
@@ -273,8 +284,8 @@ class HomeController extends Controller
                 ],
             ]);
 
-            $intent = \Stripe\PaymentIntent::create([
-                'amount' => $totalAmount * 100,
+            $this->intent = \Stripe\PaymentIntent::create([
+                'amount' => (int) round($totalAmount * 100),
                 'currency' => $this->invoice->currency->currency_code,
                 'customer' => $customer->id,
                 'setup_future_usage' => 'off_session',
@@ -282,11 +293,12 @@ class HomeController extends Controller
                 'description' => $this->invoice->invoice_number . ' Payment',
                 'metadata' => ['integration_check' => 'accept_a_payment', 'invoice_id' => $id]
             ]);
-
-            $this->intent = $intent;
+        } catch (\Throwable $e) {
+            report($e);
+            return Reply::error('Unable to initialize Stripe payment. Please try again.');
         }
 
-        $customerDetail = [
+        $this->customerDetail = [
             'email' => $client->email,
             'name' => $request->clientName,
             'line1' => $request->clientName,
@@ -294,8 +306,6 @@ class HomeController extends Controller
             'state' => $request->state,
             'country' => $request->country,
         ];
-
-        $this->customerDetail = $customerDetail;
 
         $view = view('public-payment.stripe.stripe-payment', $this->data)->render();
 

@@ -179,39 +179,39 @@
                         <table width="100%">
                             <tr class="inv-unpaid">
                                 <td class="f-14 text-dark">
-                                    @if (($estimate->client || $estimate->clientDetails) && ($estimate->client->name || $estimate->client->email || $estimate->client->mobile || $estimate->clientDetails->company_name || $estimate->clientDetails->address) && ($invoiceSetting->show_client_name == 'yes' || $invoiceSetting->show_client_email == 'yes' || $invoiceSetting->show_client_phone == 'yes' || $invoiceSetting->show_client_company_name == 'yes' || $invoiceSetting->show_client_company_address == 'yes'))
+                                    @if (($estimate->client || $estimate->clientDetails) && (optional($estimate->client)->name || optional($estimate->client)->email || optional($estimate->client)->mobile || optional($estimate->clientDetails)->company_name || optional($estimate->clientDetails)->address) && ($invoiceSetting->show_client_name == 'yes' || $invoiceSetting->show_client_email == 'yes' || $invoiceSetting->show_client_phone == 'yes' || $invoiceSetting->show_client_company_name == 'yes' || $invoiceSetting->show_client_company_address == 'yes'))
                                         <p class="mb-0 text-left">
                                             <span class="text-dark-grey ">
                                                 @lang("modules.invoices.billedTo")
                                             </span><br>
 
-                                            @if ($estimate->client && $estimate->client->name && $invoiceSetting->show_client_name == 'yes')
-                                                {{ $estimate->client->name_salutation }}<br>
+                                            @if ($estimate->client && optional($estimate->client)->name && $invoiceSetting->show_client_name == 'yes')
+                                                {{ optional($estimate->client)->name_salutation }}<br>
                                             @endif
-                                            @if ($estimate->client && $estimate->client->email && $invoiceSetting->show_client_email == 'yes')
-                                                {{ $estimate->client->email }}<br>
+                                            @if ($estimate->client && optional($estimate->client)->email && $invoiceSetting->show_client_email == 'yes')
+                                                {{ optional($estimate->client)->email }}<br>
                                             @endif
-                                            @if ($estimate->client && $estimate->client->mobile && $invoiceSetting->show_client_phone == 'yes')
-                                                {{ $estimate->client->mobile_with_phonecode }}
+                                            @if ($estimate->client && optional($estimate->client)->mobile && $invoiceSetting->show_client_phone == 'yes')
+                                                {{ optional($estimate->client)->mobile_with_phonecode }}
                                                 <br>
                                             @endif
-                                            @if ($estimate->clientDetails && $estimate->clientDetails->company_name && $invoiceSetting->show_client_company_name == 'yes')
-                                                {{ $estimate->clientDetails->company_name }}<br>
+                                            @if ($estimate->clientDetails && optional($estimate->clientDetails)->company_name && $invoiceSetting->show_client_company_name == 'yes')
+                                                {{ optional($estimate->clientDetails)->company_name }}<br>
                                             @endif
-                                            @if ($estimate->clientDetails && $estimate->clientDetails->address && $invoiceSetting->show_client_company_address == 'yes')
-                                                {!! nl2br($estimate->clientDetails->address) !!}<br><br>
+                                            @if ($estimate->clientDetails && optional($estimate->clientDetails)->address && $invoiceSetting->show_client_company_address == 'yes')
+                                                {!! nl2br(optional($estimate->clientDetails)->address) !!}<br><br>
                                             @endif
-                                            @if ($estimate->clientDetails && $estimate->clientDetails->gst_number && invoice_setting()->show_gst == 'yes')
-                                                {{ $estimate->clientDetails->tax_name }}: {{ $estimate->clientDetails->gst_number }}<br>
+                                            @if ($estimate->clientDetails && optional($estimate->clientDetails)->gst_number && invoice_setting()->show_gst == 'yes')
+                                                {{ optional($estimate->clientDetails)->tax_name }}: {{ optional($estimate->clientDetails)->gst_number }}<br>
                                             @endif
                                         </p>
                                     @endif
                                 </td>
 
                                 <td align="right" class="mt-4 mt-lg-0 mt-md-0">
-                                    @if ($estimate->clientDetails->company_logo)
-                                        <img src="{{ $estimate->clientDetails->image_url }}"
-                                             alt="{{ $estimate->clientDetails->company_name }}" class="logo"/>
+                                    @if (optional($estimate->clientDetails)->company_logo)
+                                        <img src="{{ optional($estimate->clientDetails)->image_url }}"
+                                             alt="{{ optional($estimate->clientDetails)->company_name }}" class="logo"/>
                                         <br><br><br>
                                     @endif
                                     <span

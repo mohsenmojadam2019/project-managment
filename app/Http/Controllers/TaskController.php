@@ -90,11 +90,11 @@ class TaskController extends AccountBaseController
 
             if (!in_array('admin', user_roles()) && (in_array('employee', user_roles()) && $projectIds->isEmpty())) {
                 $user = User::findOrFail(user()->id);
-                $this->waitingApprovalCount = $user->tasks()->where('board_column_id', $taskBoardColumn->id)->where('company_id', company()->id)->count();
+                $this->waitingApprovalCount = $user->tasks()->where('board_column_id', optional($taskBoardColumn)->id)->where('company_id', company()->id)->count();
             }elseif(!in_array('admin', user_roles()) && (in_array('employee', user_roles()) && !$projectIds->isEmpty())) {
-                $this->waitingApprovalCount = Task::whereIn('project_id', $projectIds)->where('board_column_id', $taskBoardColumn->id)->where('company_id', company()->id)->count();
+                $this->waitingApprovalCount = Task::whereIn('project_id', $projectIds)->where('board_column_id', optional($taskBoardColumn)->id)->where('company_id', company()->id)->count();
             }else{
-                $this->waitingApprovalCount = Task::where('board_column_id', $taskBoardColumn->id)->where('company_id', company()->id)->count();
+                $this->waitingApprovalCount = Task::where('board_column_id', optional($taskBoardColumn)->id)->where('company_id', company()->id)->count();
             }
         }
 
@@ -189,7 +189,7 @@ class TaskController extends AccountBaseController
             )
         );
 
-        $taskBoardColumn = TaskboardColumn::where('slug', $status)->first();
+        $taskBoardColumn = TaskboardColumn::where('slug', $status)->firstOrFail();
         $task->board_column_id = $taskBoardColumn->id;
 
         if ($task->status === 'completed' && $status !== 'completed') {
@@ -458,7 +458,7 @@ class TaskController extends AccountBaseController
         }
 
         $waitingApprovalTaskBoardColumn = TaskboardColumn::waitingForApprovalColumn();
-        if($request->board_column_id == $waitingApprovalTaskBoardColumn->id){
+        if($waitingApprovalTaskBoardColumn && $request->board_column_id == $waitingApprovalTaskBoardColumn->id){
             $task->approval_send = 1;
         }else{
             $task->approval_send = 0;
@@ -1123,13 +1123,13 @@ class TaskController extends AccountBaseController
         $task = Task::withTrashed()->findOrFail($taskID);
         $subTask = SubTask::where(['task_id' => $taskID, 'status' => 'incomplete'])->count();
 
-        return Reply::dataOnly(['taskCount' => $subTask, 'lastStatus' => $task->boardColumn->slug]);
+        return Reply::dataOnly(['taskCount' => $subTask, 'lastStatus' => optional($task->boardColumn)->slug]);
     }
 
     public function sendApproval(Request $request){
 
         $task = Task::findOrFail($request->taskId);
-        $taskBoardColumn = TaskboardColumn::where('slug', 'waiting_approval')->first();
+        $taskBoardColumn = TaskboardColumn::where('slug', 'waiting_approval')->firstOrFail();
 
         $task->approval_send = $request->isApproval ?? 0;
         $task->board_column_id = $taskBoardColumn->id;
@@ -1172,11 +1172,11 @@ class TaskController extends AccountBaseController
 
             if (!in_array('admin', user_roles()) && (in_array('employee', user_roles()) && $projectIds->isEmpty())) {
                 $user = User::findOrFail(user()->id);
-                $this->waitingApprovalCount = $user->tasks()->where('board_column_id', $taskBoardColumn->id)->count();
+                $this->waitingApprovalCount = $user->tasks()->where('board_column_id', optional($taskBoardColumn)->id)->count();
             }elseif(!in_array('admin', user_roles()) && (in_array('employee', user_roles()) && !$projectIds->isEmpty())) {
-                $this->waitingApprovalCount = Task::whereIn('project_id', $projectIds)->where('board_column_id', $taskBoardColumn->id)->count();
+                $this->waitingApprovalCount = Task::whereIn('project_id', $projectIds)->where('board_column_id', optional($taskBoardColumn)->id)->count();
             }else{
-                $this->waitingApprovalCount = Task::where('board_column_id', $taskBoardColumn->id)->count();
+                $this->waitingApprovalCount = Task::where('board_column_id', optional($taskBoardColumn)->id)->count();
             }
         }
 
@@ -1195,7 +1195,7 @@ class TaskController extends AccountBaseController
     public function storeStatusReason(ActionTask $request){
 
         $task = Task::findOrFail($request->taskId);
-        $taskBoardColumn = TaskboardColumn::where('slug', $request->taskStatus)->first();
+        $taskBoardColumn = TaskboardColumn::where('slug', $request->taskStatus)->firstOrFail();
         $task->board_column_id = $taskBoardColumn->id;
         $task->approval_send = 0;
         $task->save();
@@ -1248,13 +1248,17 @@ class TaskController extends AccountBaseController
 
         $completedTaskColumn = TaskboardColumn::where('slug', '=', 'completed')->first();
 
+        if (!$completedTaskColumn) {
+            return Reply::dataOnly(['status' => 'success', 'data' => $options]);
+        }
+
         $tasks = Task::where('board_column_id', '<>', $completedTaskColumn->id)->whereNotNull('due_date');
 
         if ($id != 0 && $id != '') {
             $tasks = $tasks->where('project_id', $id);
         }
 
-        $tasks = $completedTaskColumn ? $tasks->get() : [];
+        $tasks = $tasks->get();
 
         foreach ($tasks as $item) {
 
