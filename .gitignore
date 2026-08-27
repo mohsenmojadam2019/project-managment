@@ -6,7 +6,8 @@ public/user-uploads/*
 storage/*.key
 #/vendor
 .env
-.env.backup
+.env.*
+!.env.example
 .phpunit.result.cache
 Homestead.json
 Homestead.yaml
@@ -22,10 +23,10 @@ mix.js.map
 mix-manifest.json
 ngrok
 storage/installed
+/storage/temp/
 storage/framework/laravel-excel/
 grumphp.yml
 /storage/framework/laravel-excel/
-grumphp.yml
 bootstrap/cache/*
 storage/reviewed
 storage/fonts/installed-fonts.json
@@ -41,4 +42,3 @@ vendor/chillerlan/php-cache~HEAD
 vendor/chillerlan/php-settings-container~HEAD
 public/css/app-custom.css
 public/css/theme-custom.css
-.gitmodules/storage/temp/
