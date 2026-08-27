@@ -48,7 +48,11 @@ class TaskboardColumn extends BaseModel
 
     public function membertasks(): HasMany
     {
-        return $this->hasMany(Task::class, 'board_column_id')->where('user_id', user()->id)->orderBy('column_priority');
+        return $this->hasMany(Task::class, 'board_column_id')
+            ->whereHas('users', function ($query) {
+                $query->where('users.id', user()->id);
+            })
+            ->orderBy('column_priority');
     }
 
     public function userSetting(): HasOne
