@@ -21,6 +21,7 @@ class Kernel extends HttpKernel
         \App\Http\Middleware\TrustProxies::class,
         \App\Http\Middleware\PreventRequestsDuringMaintenance::class,
         ValidatePostSize::class,
+        \App\Http\Middleware\RejectUnsafeEmailHeaders::class,
         TrimStrings::class,
         ConvertEmptyStringsToNull::class,
         HandleCors::class
@@ -56,8 +57,6 @@ class Kernel extends HttpKernel
 
     /**
      * The application's route middleware.
-     *
-     * These middleware may be assigned to groups or used individually.
      *
      * @var array
      */
