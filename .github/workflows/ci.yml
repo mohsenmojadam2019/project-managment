@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   php-quality:
-    name: PHP syntax and Composer validation
+    name: PHP syntax, Composer validation and security audit
     runs-on: ubuntu-latest
 
     steps:
@@ -30,6 +30,9 @@ jobs:
 
       - name: Validate composer.json
         run: composer validate --no-check-publish
+
+      - name: Audit locked PHP dependencies
+        run: composer audit --locked --no-interaction
 
       - name: Check PHP syntax
         shell: bash
