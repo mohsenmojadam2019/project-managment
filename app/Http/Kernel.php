@@ -42,6 +42,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\EnforceSensitiveProjectPermissions::class,
             \App\Http\Middleware\ValidateTaskStatusChange::class,
             \App\Http\Middleware\ValidateStripeInvoicePayment::class,
+            \App\Http\Middleware\EnforceSensitiveTaskPermissions::class,
         ],
 
         'api' => [
