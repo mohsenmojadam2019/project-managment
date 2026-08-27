@@ -14,6 +14,7 @@ use Laravel\Sanctum\Sanctum;
 use Illuminate\Support\Facades\Config;
 use App\Models\SmsSetting;
 use App\Models\PaymentGatewayCredentials;
+
 class AppServiceProvider extends ServiceProvider
 {
 
@@ -24,11 +25,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        Cashier::ignoreMigrations();
+        // Cashier 16+ no longer exposes ignoreMigrations(); older supported
+        // versions did. Keep compatibility without crashing package discovery.
+        if (method_exists(Cashier::class, 'ignoreMigrations')) {
+            Cashier::ignoreMigrations();
+        }
+
         Sanctum::ignoreMigrations();
+
         if ($this->app->isLocal()) {
             $this->app->register(\Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider::class);
         }
+
         if (config('app.redirect_https')) {
             $this->app['request']->server->set('HTTPS', true);
         }
@@ -61,7 +69,7 @@ class AppServiceProvider extends ServiceProvider
             /** @phpstan-ignore-line */
         });
 
-            //    Model::preventLazyLoading(app()->environment('development'));
+        // Model::preventLazyLoading(app()->environment('development'));
     }
 
 }
