@@ -22,7 +22,7 @@ jobs:
           php-version: '8.2'
           tools: composer:v2
           coverage: none
-      - name: Prepare Laravel 10 compatible secure constraints
+      - name: Prepare stable Laravel 10 security constraints
         shell: bash
         run: |
           python3 <<'PY'
@@ -31,17 +31,17 @@ jobs:
           p=Path('composer.json')
           d=json.loads(p.read_text())
           r=d['require']
-          # Remove package currently flagged by Composer's malware filter.
           r.pop('laravel-lang/lang', None)
-          # Stay on Laravel 10 because current Froiden REST API + Telegram channel
-          # dependencies do not resolve on Laravel 12. Patch everything that can
-          # be safely upgraded within this major first.
-          r['laravel/framework']='^10.0'
+          d['minimum-stability']='stable'
+          d['prefer-stable']=True
+          r['laravel/framework']='^10.48'
           r['barryvdh/laravel-dompdf']='^3.1.2'
           r['dompdf/dompdf']='^3.1.6'
           r['barryvdh/laravel-translation-manager']='^0.6.8'
           r['guzzlehttp/guzzle']='^7.15.2'
           r['guzzlehttp/psr7']='^2.12.3'
+          r['guzzlehttp/oauth-subscriber']='^0.8.1'
+          r['firebase/php-jwt']='^7.0'
           r['league/commonmark']='^2.9.0'
           r['phpoffice/phpspreadsheet']='^1.30.6'
           r['mtdowling/jmespath.php']='^2.9.1'
@@ -53,8 +53,24 @@ jobs:
           d['require-dev']['psy/psysh']='^0.12.19'
           p.write_text(json.dumps(d, indent=4, ensure_ascii=False)+'\n')
           PY
-      - name: Resolve patched Laravel 10 dependency graph
+      - name: Resolve stable patched dependency graph
         run: composer update --with-all-dependencies --no-scripts --no-interaction --prefer-dist
+      - name: Reject unexpected dev dependencies
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          from pathlib import Path
+          lock=json.loads(Path('composer.lock').read_text())
+          bad=[]
+          for section in ('packages','packages-dev'):
+              for pkg in lock.get(section,[]):
+                  version=str(pkg.get('version',''))
+                  if version.startswith('dev-') or version.endswith('-dev') or 'x-dev' in version:
+                      bad.append((pkg.get('name'), version))
+          if bad:
+              raise SystemExit('Unexpected dev packages: ' + ', '.join(f'{n}={v}' for n,v in bad))
+          PY
       - name: Validate resolved Composer files
         run: composer validate --no-check-publish
       - name: Audit resolved graph
