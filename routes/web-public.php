@@ -20,6 +20,7 @@ use App\Http\Controllers\Payment\FlutterwaveController;
 use App\Http\Controllers\Payment\StripeWebhookController;
 use App\Http\Controllers\PublicLeadGdprController;
 use App\Http\Controllers\Payment\ZarinpalController;
+use App\Http\Middleware\ValidatePublicDocumentAccess;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -47,12 +48,18 @@ Route::post('/lead-form/leadStore', [HomeController::class, 'leadStore'])->name(
 Route::get('/ticket-form/{id}', [HomeController::class, 'ticketForm'])->name('front.ticket_form');
 Route::post('/lead-form/ticket-store', [HomeController::class, 'ticketStore'])->name('front.ticket_store');
 
-Route::post('/contract/sign/{id}', [PublicUrlController::class, 'contractSign'])->name('front.contract.sign');
+Route::post('/contract/sign/{id}', [PublicUrlController::class, 'contractSign'])
+    ->name('front.contract.sign')
+    ->middleware(ValidatePublicDocumentAccess::class);
 Route::get('/contract/download/{id}', [PublicUrlController::class, 'contractDownload'])->name('front.contract.download');
 // Estimate Public url
 
-Route::post('/estimate/decline/{id}', [PublicUrlController::class, 'estimateDecline'])->name('front.estimate.decline');
-Route::post('/estimate/accept/{id}', [PublicUrlController::class, 'estimateAccept'])->name('front.estimate.accept');
+Route::post('/estimate/decline/{id}', [PublicUrlController::class, 'estimateDecline'])
+    ->name('front.estimate.decline')
+    ->middleware(ValidatePublicDocumentAccess::class);
+Route::post('/estimate/accept/{id}', [PublicUrlController::class, 'estimateAccept'])
+    ->name('front.estimate.accept')
+    ->middleware(ValidatePublicDocumentAccess::class);
 Route::get('/estimate/download/{id}', [PublicUrlController::class, 'estimateDownload'])->name('front.estimate.download');
 
 
@@ -147,8 +154,12 @@ Route::get('file/{type}/{path}', [FileController::class, 'getFile'])->name('file
 
 // SIGNED URLS ->middleware('signed')
 Route::get('/proposal/{hash}', [HomeController::class, 'proposal'])->name('front.proposal')->middleware('signed');
-Route::get('/contract/{hash}', [PublicUrlController::class, 'contractView'])->name('front.contract.show')->middleware('signed');
-Route::get('/estimate/{hash}', [PublicUrlController::class, 'estimateView'])->name('front.estimate.show')->middleware('signed');
+Route::get('/contract/{hash}', [PublicUrlController::class, 'contractView'])
+    ->name('front.contract.show')
+    ->middleware(['signed', ValidatePublicDocumentAccess::class]);
+Route::get('/estimate/{hash}', [PublicUrlController::class, 'estimateView'])
+    ->name('front.estimate.show')
+    ->middleware(['signed', ValidatePublicDocumentAccess::class]);
 Route::get('/invoice/{hash}', [HomeController::class, 'invoice'])->name('front.invoice')->middleware('signed');
 Route::get('/task-board/{hash}', [HomeController::class, 'taskboard'])->name('front.taskboard');
 Route::get('/task/{id}', [HomeController::class, 'taskDetail'])->name('front.task_detail');
