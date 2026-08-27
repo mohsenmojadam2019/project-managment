@@ -263,7 +263,7 @@ class Invoice extends BaseModel
 
     public function amountDue()
     {
-        $due = $this->total - ($this->amountPaid());
+        $due = $this->total - $this->amountPaid();
 
         return max($due, 0);
     }
@@ -275,17 +275,16 @@ class Invoice extends BaseModel
 
     public function getPaidAmount()
     {
-        return $this->payment->sum('amount');
+        return $this->payment->where('status', 'complete')->sum('amount');
     }
 
     public function getTotalAmountAttribute()
     {
-
-        if (!is_null($this->total) && !is_null($this->currency->currency_symbol)) {
-            return $this->currency->currency_symbol . $this->total;
+        if (is_null($this->total) || is_null($this->currency)) {
+            return '';
         }
 
-        return '';
+        return $this->currency->currency_symbol . $this->total;
     }
 
     public function getIssueOnAttribute()
