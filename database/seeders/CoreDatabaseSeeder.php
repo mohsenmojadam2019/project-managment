@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\AwardIcon;
 use App\Models\DatabaseBackupSetting;
 use App\Models\GdprSetting;
 use App\Models\LanguageSetting;
@@ -14,13 +15,13 @@ use Illuminate\Database\Seeder;
 
 class CoreDatabaseSeeder extends Seeder
 {
-
     /**
-     * Run the database seeds.
+     * Seed global application defaults.
      *
-     * @return void
+     * This seeder is intentionally idempotent: it can be executed repeatedly
+     * without creating duplicate global settings, languages or award icons.
      */
-    public function run()
+    public function run(): void
     {
         $this->dashboardBackupSetting();
         $this->fileStorageSetting();
@@ -28,42 +29,55 @@ class CoreDatabaseSeeder extends Seeder
         $this->languageSettings();
         $this->socialAuth();
         $this->appreciationIcon();
-        TranslateSetting::create(['google_key' => null]);
+        $this->translateSetting();
         $this->pushNotification();
     }
 
-    public function dashboardBackupSetting()
+    private function dashboardBackupSetting(): void
     {
-        $backupSetting = new DatabaseBackupSetting();
-        $backupSetting->status = 'inactive';
-        $backupSetting->hour_of_day = '';
-        $backupSetting->backup_after_days = '0';
-        $backupSetting->delete_backup_after_days = '0';
-        $backupSetting->save();
+        DatabaseBackupSetting::query()->firstOrCreate([], [
+            'status' => 'inactive',
+            'hour_of_day' => '',
+            'backup_after_days' => '0',
+            'delete_backup_after_days' => '0',
+        ]);
     }
 
-    private function fileStorageSetting()
+    private function fileStorageSetting(): void
     {
-        $storage = new StorageSetting();
-        $storage->filesystem = 'local';
-        $storage->status = 'enabled';
-        $storage->save();
+        StorageSetting::query()->firstOrCreate([
+            'filesystem' => 'local',
+        ], [
+            'status' => 'enabled',
+        ]);
     }
 
-    private function gdprSetting()
+    private function gdprSetting(): void
     {
-        $gdpr = new GdprSetting();
-        $gdpr->create();
+        GdprSetting::query()->firstOrCreate([]);
     }
 
-    private function languageSettings()
+    private function languageSettings(): void
     {
-        LanguageSetting::insert(LanguageSetting::LANGUAGES);
+        foreach (LanguageSetting::LANGUAGES as $language) {
+            // Normalise a legacy typo in the source language catalogue.
+            if (($language['status'] ?? null) === 'diabled') {
+                $language['status'] = 'disabled';
+            }
+
+            $code = $language['language_code'];
+            unset($language['language_code']);
+
+            LanguageSetting::query()->updateOrCreate(
+                ['language_code' => $code],
+                $language
+            );
+        }
     }
 
-    private function socialAuth()
+    private function socialAuth(): void
     {
-        SocialAuthSetting::create([
+        SocialAuthSetting::query()->firstOrCreate([], [
             'facebook_status' => 'disable',
             'google_status' => 'disable',
             'linkedin_status' => 'disable',
@@ -71,20 +85,25 @@ class CoreDatabaseSeeder extends Seeder
         ]);
     }
 
-    private function pushNotification()
+    private function translateSetting(): void
     {
-        $slack = new PushNotificationSetting();
-        $slack->onesignal_app_id = null;
-        $slack->onesignal_rest_api_key = null;
-        $slack->notification_logo = null;
-        $slack->save();
-
-        $pusherSetting = new PusherSetting();
-        $pusherSetting->save();
-
+        TranslateSetting::query()->firstOrCreate([], [
+            'google_key' => null,
+        ]);
     }
 
-    private function appreciationIcon()
+    private function pushNotification(): void
+    {
+        PushNotificationSetting::query()->firstOrCreate([], [
+            'onesignal_app_id' => null,
+            'onesignal_rest_api_key' => null,
+            'notification_logo' => null,
+        ]);
+
+        PusherSetting::query()->firstOrCreate([]);
+    }
+
+    private function appreciationIcon(): void
     {
         $icons = [
             ['title' => 'Trophy', 'icon' => 'trophy'],
@@ -100,9 +119,10 @@ class CoreDatabaseSeeder extends Seeder
         ];
 
         foreach ($icons as $icon) {
-            \App\Models\AwardIcon::create($icon);
+            AwardIcon::query()->updateOrCreate(
+                ['title' => $icon['title']],
+                ['icon' => $icon['icon']]
+            );
         }
     }
-
 }
-
