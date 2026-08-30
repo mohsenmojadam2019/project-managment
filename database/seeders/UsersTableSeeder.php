@@ -4,184 +4,186 @@ namespace Database\Seeders;
 
 use App\Enums\MaritalStatus;
 use App\Models\ClientDetails;
+use App\Models\Designation;
 use App\Models\EmployeeDetails;
 use App\Models\Role;
+use App\Models\Team;
 use App\Models\UniversalSearch;
-use Illuminate\Database\Seeder;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 class UsersTableSeeder extends Seeder
 {
-
     /**
-     * Run the database seeds.
+     * Seed deterministic demo users for one company.
      *
-     * @return void
+     * Re-running this seeder updates the same identities instead of adding
+     * duplicate users, details, role pivots or universal-search rows.
      */
-
-    public function run($companyId)
+    public function run($companyId): void
     {
+        $companyId = (int) $companyId;
+        $count = max(0, (int) config('app.seed_record_count', 10));
 
-        $count = config('app.seed_record_count');
+        $adminRole = $this->role('admin', $companyId);
+        $employeeRole = $this->role('employee', $companyId);
+        $clientRole = $this->role('client', $companyId);
 
-        $adminRole = Role::where('name', 'admin')->where('company_id', $companyId)->first();
-        $employeeRole = Role::where('name', 'employee')->where('company_id', $companyId)->first();
-        $clientRole = Role::where('name', 'client')->where('company_id', $companyId)->first();
+        $adminEmail = $companyId === 1 ? 'admin@example.com' : 'admin' . $companyId . '@example.com';
+        $employeeEmail = $companyId === 1 ? 'employee@example.com' : 'employee' . $companyId . '@example.com';
+        $clientEmail = $companyId === 1 ? 'client@example.com' : 'client' . $companyId . '@example.com';
 
+        $admin = $this->demoUser($companyId, $adminEmail, 'Demo Admin');
+        $this->addEmployeeDetails($admin, $employeeRole, $companyId);
+        $admin->roles()->syncWithoutDetaching([$adminRole->id]);
 
-        $faker = \Faker\Factory::create();
+        $employee = $this->demoUser($companyId, $employeeEmail, 'Demo Employee');
+        $this->addEmployeeDetails($employee, $employeeRole, $companyId);
 
-        $user = new User();
-        $user->name = $faker->name;
-        $user->company_id = $companyId;
+        $client = $this->demoUser($companyId, $clientEmail, 'Demo Client');
+        $this->addClientDetails($client, $clientRole, $companyId);
 
-        if ($companyId === 1) {
-            $user->email = 'admin@example.com';
-            $user->password = Hash::make('123456');
-            $user->gender = 'male';
-            $user->rtl = 1;
-            $user->locale = 'fa';
-            $user->save();
+        for ($index = 1; $index <= $count; $index++) {
+            $client = $this->demoUser(
+                $companyId,
+                sprintf('client-%d-%d@example.test', $companyId, $index),
+                'Demo Client ' . $index
+            );
+            $this->addClientDetails($client, $clientRole, $companyId);
 
-            $this->addEmployeeDetails($user, $employeeRole, $companyId);
-            $user->roles()->attach($adminRole->id); // id only
-
-            $user = new User();
-            $user->name = $faker->name;
-            $user->company_id = $companyId;
-            $user->email = 'employee@example.com';
-            $user->password = Hash::make('123456');
-            $user->gender = 'male';
-            $user->rtl = 1;
-            $user->locale = 'fa';
-            $user->save();
-
-            $this->addEmployeeDetails($user, $employeeRole, $companyId);
-
-            // Client details
-            $user = new User();
-            $user->name = $faker->name;
-            $user->company_id = $companyId;
-            $user->rtl = 1;
-            $user->locale = 'fa';
-            $user->email = 'client@example.com';
+            $employee = $this->demoUser(
+                $companyId,
+                sprintf('employee-%d-%d@example.test', $companyId, $index),
+                'Demo Employee ' . $index
+            );
+            $this->addEmployeeDetails($employee, $employeeRole, $companyId);
         }
-        else {
-            $user->email = 'admin' . $companyId . '@example.com';
-            $user->password = Hash::make('123456');
-            $user->gender = 'male';
-            $user->rtl = 1;
-            $user->locale = 'fa';
-            $user->save();
-
-            $this->addEmployeeDetails($user, $employeeRole, $companyId);
-            $user->roles()->attach($adminRole->id); // id only
-
-            $user = new User();
-            $user->name = $faker->name;
-            $user->company_id = $companyId;
-            $user->email = 'employee' . $companyId . '@example.com';
-            $user->password = Hash::make('123456');
-            $user->gender = 'male';
-            $user->rtl = 1;
-            $user->locale = 'fa';
-            $user->save();
-
-            $this->addEmployeeDetails($user, $employeeRole, $companyId);
-
-            // Client details
-            $user = new User();
-            $user->name = $faker->name;
-            $user->company_id = $companyId;
-            $user->rtl = 1;
-            $user->locale = 'fa';
-            $user->email = 'client' . $companyId . '@example.com';
-
-        }
-
-        $user->password = Hash::make('123456');
-        $user->save();
-        $this->addClientDetails($user, $clientRole, $companyId);
-
-
-        // Multiple client create
-        User::factory()->count((int)$count)->make()
-            ->each(function (User $user) use ($clientRole, $companyId) {
-
-                $user->company_id = $companyId;
-                $user->save();
-                $this->command->info('Seeding client: ' . ($user->id) );
-                $this->addClientDetails($user, $clientRole, $companyId);
-            });
-
-        // Multiple employee create
-        User::factory((int)$count)->make()
-            ->each(function (User $user) use ($employeeRole, $companyId) {
-
-                $user->company_id = $companyId;
-                $user->save();
-                $this->command->info('employee employee: ' . ($user->id) );
-                $this->addEmployeeDetails($user, $employeeRole, $companyId);
-            });
     }
 
-    private function addEmployeeDetails($user, $employeeRole, $companyId)
+    private function role(string $name, int $companyId): Role
     {
-        $faker = \Faker\Factory::create();
-        $employee = new EmployeeDetails();
-        $employee->user_id = $user->id;
-        $employee->company_id = $companyId;
-        /* @phpstan-ignore-line */
-        $employee->employee_id = 'EMP-' . (EmployeeDetails::where('company_id', $companyId)->count() + 1);
-        /* @phpstan-ignore-line */
-        $employee->address = $faker->address;
-        $employee->about_me = 'I am super human';
-        $employee->hourly_rate = $faker->numberBetween(15, 100);
-        $employee->department_id = rand(1, 6);
-        $employee->designation_id = rand(1, 5);
-        $employee->joining_date = now()->subMonths(9)->toDateTimeString();
-        $employee->calendar_view = 'task,events,holiday,tickets,leaves,follow_ups';
-        $employee->marital_status = MaritalStatus::Single;
+        $role = Role::query()
+            ->where('name', $name)
+            ->where('company_id', $companyId)
+            ->first();
+
+        if (! $role) {
+            throw new RuntimeException("Required role [{$name}] is missing for company [{$companyId}].");
+        }
+
+        return $role;
+    }
+
+    private function demoUser(int $companyId, string $email, string $fallbackName): User
+    {
+        $user = User::query()->firstOrNew([
+            'company_id' => $companyId,
+            'email' => $email,
+        ]);
+
+        if (! $user->exists) {
+            $user->name = $fallbackName;
+            $user->password = Hash::make($this->demoPassword());
+        }
+
+        $user->gender = $user->gender ?: 'male';
+        $user->rtl = 1;
+        $user->locale = 'fa';
+        $user->save();
+
+        return $user;
+    }
+
+    private function demoPassword(): string
+    {
+        return (string) env('DEMO_USER_PASSWORD', 'Demo-ChangeMe-123!');
+    }
+
+    private function addEmployeeDetails(User $user, Role $employeeRole, int $companyId): void
+    {
+        $departmentId = Team::query()
+            ->where('company_id', $companyId)
+            ->inRandomOrder()
+            ->value('id');
+
+        $designationId = Designation::query()
+            ->where('company_id', $companyId)
+            ->inRandomOrder()
+            ->value('id');
+
+        if (! $departmentId || ! $designationId) {
+            throw new RuntimeException("Departments/designations must be seeded before users for company [{$companyId}].");
+        }
+
+        $employee = EmployeeDetails::query()->firstOrNew([
+            'user_id' => $user->id,
+            'company_id' => $companyId,
+        ]);
+
+        if (! $employee->exists) {
+            $employee->employee_id = 'EMP-' . $user->id;
+            $employee->address = fake()->address;
+            $employee->about_me = 'Demo employee profile';
+            $employee->hourly_rate = fake()->numberBetween(15, 100);
+            $employee->joining_date = now()->subMonths(9)->toDateTimeString();
+            $employee->calendar_view = 'task,events,holiday,tickets,leaves,follow_ups';
+            $employee->marital_status = MaritalStatus::Single;
+        }
+
+        $validDepartment = Team::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employee->department_id)
+            ->exists();
+
+        $validDesignation = Designation::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employee->designation_id)
+            ->exists();
+
+        if (! $validDepartment) {
+            $employee->department_id = $departmentId;
+        }
+
+        if (! $validDesignation) {
+            $employee->designation_id = $designationId;
+        }
+
         $employee->save();
 
-        $search = new UniversalSearch();
-        $search->searchable_id = $user->id;
-        $search->company_id = $companyId;
-        $search->title = $user->name;
-        $search->route_name = 'employees.show';
-        $search->module_type = 'employee';
-        $search->save();
+        UniversalSearch::query()->updateOrCreate([
+            'searchable_id' => $user->id,
+            'company_id' => $companyId,
+            'module_type' => 'employee',
+        ], [
+            'title' => $user->name,
+            'route_name' => 'employees.show',
+        ]);
 
-        // Assign Role
-        $user->roles()->attach($employeeRole->id);
+        $user->roles()->syncWithoutDetaching([$employeeRole->id]);
     }
 
-    private function addClientDetails($user, $clientRole, $companyId)
+    private function addClientDetails(User $user, Role $clientRole, int $companyId): void
     {
-        $faker = \Faker\Factory::create();
-        $search = new UniversalSearch();
-        $search->searchable_id = $user->id;
-        $search->company_id = $companyId;
-        /* @phpstan-ignore-line */
-        $search->title = $user->name;
-        /* @phpstan-ignore-line */
-        $search->route_name = 'clients.show';
-        $search->module_type = 'client';
-        $search->save();
+        UniversalSearch::query()->updateOrCreate([
+            'searchable_id' => $user->id,
+            'company_id' => $companyId,
+            'module_type' => 'client',
+        ], [
+            'title' => $user->name,
+            'route_name' => 'clients.show',
+        ]);
 
-        $client = new ClientDetails();
-        $client->user_id = $user->id;
-        $client->company_id = $companyId;
-        /* @phpstan-ignore-line */
-        $client->company_name = $faker->company;
-        $client->address = $faker->address;
-        $client->website = 'https://yoursite.ir';
-        $client->save();
+        ClientDetails::query()->firstOrCreate([
+            'user_id' => $user->id,
+            'company_id' => $companyId,
+        ], [
+            'company_name' => fake()->company,
+            'address' => fake()->address,
+            'website' => 'https://example.test',
+        ]);
 
-        // Assign Role
-        $user->roles()->attach($clientRole->id);
-        /* @phpstan-ignore-line */
+        $user->roles()->syncWithoutDetaching([$clientRole->id]);
     }
-
 }
