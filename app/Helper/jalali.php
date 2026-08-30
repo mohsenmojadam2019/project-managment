@@ -1,7 +1,6 @@
 <?php
 
 use Carbon\Carbon;
-use DateTimeInterface;
 use Hekmatinasser\Verta\Verta;
 
 if (!function_exists('jalali_date_format')) {
@@ -42,7 +41,7 @@ if (!function_exists('jalali_carbon')) {
         }
 
         try {
-            if ($value instanceof DateTimeInterface) {
+            if ($value instanceof \DateTimeInterface) {
                 return Carbon::instance($value);
             }
 
