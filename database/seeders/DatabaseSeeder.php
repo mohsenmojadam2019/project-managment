@@ -36,7 +36,7 @@ class DatabaseSeeder extends Seeder
             });
 
             if (!App::environment('codecanyon')) {
-                Artisan::call('sync-user-permissions', ['type' => 'all']);
+                Artisan::call('sync-user-permissions all');
             }
         } finally {
             config(['app.seeding' => false]);
