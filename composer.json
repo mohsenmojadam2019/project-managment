@@ -101,10 +101,7 @@
         "phpunit/phpunit": "^10.1",
         "spatie/laravel-ignition": "^2.0"
     },
-    "repositories": [
-
-
-    ],
+    "repositories": [],
     "config": {
         "optimize-autoloader": true,
         "preferred-install": "dist",
@@ -132,13 +129,13 @@
             "Modules\\": "Modules/"
         },
         "files": [
+            "app/Helper/jalali.php",
             "app/Helper/start.php"
         ],
         "exclude-from-classmap": [
             "Modules/UniversalBundle/Modules/*"
         ]
-    }
-,
+    },
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/"
