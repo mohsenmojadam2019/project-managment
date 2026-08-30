@@ -132,6 +132,7 @@
             "Modules\\": "Modules/"
         },
         "files": [
+            "app/Support/jalali_helpers.php",
             "app/Helper/start.php"
         ],
         "exclude-from-classmap": [
