@@ -1,24 +1,20 @@
 <?php
+
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Role;
+use Illuminate\Database\Seeder;
 
 class ProjectAdminRoleSeeder extends Seeder
 {
-
-    /**
-     * Run the database seeds.
-     *
-     * @return void
-     */
-    public function run()
+    public function run(): void
     {
-        $admin = new Role();
-        $admin->name = 'project_admin';
-        $admin->display_name = 'Project Admin'; // optional
-        $admin->description = 'Project admin is allowed to manage all the projects in a company.'; // optional
-        $admin->save();
+        Role::query()->firstOrCreate(
+            ['name' => 'project_admin'],
+            [
+                'display_name' => 'Project Admin',
+                'description' => 'Project admin is allowed to manage all the projects in a company.',
+            ]
+        );
     }
-
 }
