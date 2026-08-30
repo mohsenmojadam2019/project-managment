@@ -9,43 +9,59 @@ use Illuminate\Database\Seeder;
 
 class DepartmentTableSeeder extends Seeder
 {
-
     /**
-     * Run the database seeds.
-     *
-     * @return void
+     * Seed company departments and designations without duplicating them.
      */
-    public function run($companyId)
+    public function run($companyId): void
     {
-
         $departments = [
-            ['team_name' => 'Marketing', 'company_id' => $companyId],
-            ['team_name' => 'Sales', 'company_id' => $companyId],
-            ['team_name' => 'Human Resources', 'company_id' => $companyId],
-            ['team_name' => 'Public Relations', 'company_id' => $companyId],
-            ['team_name' => 'Research', 'company_id' => $companyId],
-            ['team_name' => 'Finance', 'company_id' => $companyId],
+            'Marketing',
+            'Sales',
+            'Human Resources',
+            'Public Relations',
+            'Research',
+            'Finance',
         ];
 
         $designations = [
-            ['name' => 'Trainee', 'company_id' => $companyId],
-            ['name' => 'Senior', 'company_id' => $companyId],
-            ['name' => 'Junior', 'company_id' => $companyId],
-            ['name' => 'Team Lead', 'company_id' => $companyId],
-            ['name' => 'Project Manager', 'company_id' => $companyId],
+            'Trainee',
+            'Senior',
+            'Junior',
+            'Team Lead',
+            'Project Manager',
         ];
 
-        Team::insert($departments);
-        Designation::insert($designations);
+        foreach ($departments as $department) {
+            Team::query()->firstOrCreate([
+                'team_name' => $department,
+                'company_id' => $companyId,
+            ]);
+        }
 
-        $teams = Team::where('company_id', $companyId)->pluck('id')->toArray();
-        $designations = Designation::where('company_id', $companyId)->pluck('id')->toArray();
+        foreach ($designations as $designation) {
+            Designation::query()->firstOrCreate([
+                'name' => $designation,
+                'company_id' => $companyId,
+            ]);
+        }
 
-        LeaveType::where('company_id', $companyId)->update([
-            'department' => json_encode($teams),
-            'designation' => json_encode($designations),
-        ]);
+        $teamIds = Team::query()
+            ->where('company_id', $companyId)
+            ->pluck('id')
+            ->values()
+            ->all();
 
+        $designationIds = Designation::query()
+            ->where('company_id', $companyId)
+            ->pluck('id')
+            ->values()
+            ->all();
+
+        LeaveType::query()
+            ->where('company_id', $companyId)
+            ->update([
+                'department' => json_encode($teamIds),
+                'designation' => json_encode($designationIds),
+            ]);
     }
-
 }
