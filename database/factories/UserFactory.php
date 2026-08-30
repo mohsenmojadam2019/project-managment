@@ -4,11 +4,11 @@ namespace Database\Factories;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class UserFactory extends Factory
 {
-
     /**
      * The name of the factory's corresponding model.
      *
@@ -25,11 +25,10 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name,
-            'email' => fake()->unique()->safeEmail . rand(0, 9), /* @phpstan-ignore-line */
-            'password' => bcrypt('123456'),
+            'email' => fake()->unique()->safeEmail,
+            'password' => Hash::make((string) env('DEMO_USER_PASSWORD', 'Demo-ChangeMe-123!')),
             'gender' => 'male',
             'remember_token' => Str::random(10),
         ];
     }
-
 }
