@@ -53,11 +53,10 @@ class CoreDatabaseSeeder extends Seeder
     private function languageSettings(): void
     {
         foreach (LanguageSetting::LANGUAGES as $language) {
-            $key = isset($language['language_code'])
-                ? ['language_code' => $language['language_code']]
-                : ['language_name' => $language['language_name'] ?? $language['language_code'] ?? 'unknown'];
-
-            LanguageSetting::query()->firstOrCreate($key, $language);
+            LanguageSetting::query()->updateOrCreate(
+                ['language_code' => $language['language_code']],
+                $language
+            );
         }
     }
 
