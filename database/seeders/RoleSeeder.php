@@ -2,33 +2,27 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Role;
 use App\Models\Permission;
+use App\Models\Role;
+use Illuminate\Database\Seeder;
 
 class RoleSeeder extends Seeder
 {
-
-    /**
-     * Run the database seeds.
-     *
-     * @return void
-     */
-    public function run($companyId)
+    public function run($companyId): void
     {
-        $role = new Role();
-        $role->name = 'Manager';
-        $role->company_id = $companyId;
-        $role->display_name = 'Manager';
-        $role->save();
+        $role = Role::query()->firstOrCreate(
+            [
+                'name' => 'Manager',
+                'company_id' => $companyId,
+            ],
+            [
+                'display_name' => 'Manager',
+            ]
+        );
 
-        $roleId = $role->id;
-        $permissions = Permission::get();
+        $permissions = Permission::query()->get();
 
-        $role = Role::findOrFail($roleId);
-        $role->perms()->sync([]);
-        $role->attachPermissions($permissions);
-
+        // sync is idempotent and also removes stale permission relations.
+        $role->perms()->sync($permissions->pluck('id')->all());
     }
-
 }
