@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\AwardIcon;
 use App\Models\DatabaseBackupSetting;
 use App\Models\GdprSetting;
 use App\Models\LanguageSetting;
@@ -14,13 +15,7 @@ use Illuminate\Database\Seeder;
 
 class CoreDatabaseSeeder extends Seeder
 {
-
-    /**
-     * Run the database seeds.
-     *
-     * @return void
-     */
-    public function run()
+    public function run(): void
     {
         $this->dashboardBackupSetting();
         $this->fileStorageSetting();
@@ -28,42 +23,47 @@ class CoreDatabaseSeeder extends Seeder
         $this->languageSettings();
         $this->socialAuth();
         $this->appreciationIcon();
-        TranslateSetting::create(['google_key' => null]);
+        TranslateSetting::query()->firstOrCreate([], ['google_key' => null]);
         $this->pushNotification();
     }
 
-    public function dashboardBackupSetting()
+    private function dashboardBackupSetting(): void
     {
-        $backupSetting = new DatabaseBackupSetting();
-        $backupSetting->status = 'inactive';
-        $backupSetting->hour_of_day = '';
-        $backupSetting->backup_after_days = '0';
-        $backupSetting->delete_backup_after_days = '0';
-        $backupSetting->save();
+        DatabaseBackupSetting::query()->firstOrCreate([], [
+            'status' => 'inactive',
+            'hour_of_day' => '',
+            'backup_after_days' => '0',
+            'delete_backup_after_days' => '0',
+        ]);
     }
 
-    private function fileStorageSetting()
+    private function fileStorageSetting(): void
     {
-        $storage = new StorageSetting();
-        $storage->filesystem = 'local';
-        $storage->status = 'enabled';
-        $storage->save();
+        StorageSetting::query()->firstOrCreate(
+            ['filesystem' => 'local'],
+            ['status' => 'enabled']
+        );
     }
 
-    private function gdprSetting()
+    private function gdprSetting(): void
     {
-        $gdpr = new GdprSetting();
-        $gdpr->create();
+        GdprSetting::query()->firstOrCreate([]);
     }
 
-    private function languageSettings()
+    private function languageSettings(): void
     {
-        LanguageSetting::insert(LanguageSetting::LANGUAGES);
+        foreach (LanguageSetting::LANGUAGES as $language) {
+            $key = isset($language['language_code'])
+                ? ['language_code' => $language['language_code']]
+                : ['language_name' => $language['language_name'] ?? $language['language_code'] ?? 'unknown'];
+
+            LanguageSetting::query()->firstOrCreate($key, $language);
+        }
     }
 
-    private function socialAuth()
+    private function socialAuth(): void
     {
-        SocialAuthSetting::create([
+        SocialAuthSetting::query()->firstOrCreate([], [
             'facebook_status' => 'disable',
             'google_status' => 'disable',
             'linkedin_status' => 'disable',
@@ -71,20 +71,18 @@ class CoreDatabaseSeeder extends Seeder
         ]);
     }
 
-    private function pushNotification()
+    private function pushNotification(): void
     {
-        $slack = new PushNotificationSetting();
-        $slack->onesignal_app_id = null;
-        $slack->onesignal_rest_api_key = null;
-        $slack->notification_logo = null;
-        $slack->save();
+        PushNotificationSetting::query()->firstOrCreate([], [
+            'onesignal_app_id' => null,
+            'onesignal_rest_api_key' => null,
+            'notification_logo' => null,
+        ]);
 
-        $pusherSetting = new PusherSetting();
-        $pusherSetting->save();
-
+        PusherSetting::query()->firstOrCreate([]);
     }
 
-    private function appreciationIcon()
+    private function appreciationIcon(): void
     {
         $icons = [
             ['title' => 'Trophy', 'icon' => 'trophy'],
@@ -100,9 +98,10 @@ class CoreDatabaseSeeder extends Seeder
         ];
 
         foreach ($icons as $icon) {
-            \App\Models\AwardIcon::create($icon);
+            AwardIcon::query()->updateOrCreate(
+                ['title' => $icon['title']],
+                ['icon' => $icon['icon']]
+            );
         }
     }
-
 }
-
