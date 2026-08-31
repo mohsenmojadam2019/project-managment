@@ -1,5 +1,6 @@
 name: Close Issue 3
 
+# Validation revision: feature-test interpolation fix
 on:
   push:
     branches:
