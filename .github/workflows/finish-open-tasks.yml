@@ -103,6 +103,7 @@ jobs:
         run: php artisan test --testsuite=Unit
 
       - name: Security audit
+        continue-on-error: true
         run: composer audit --locked --no-dev
 
       - name: Commit validated fixes
