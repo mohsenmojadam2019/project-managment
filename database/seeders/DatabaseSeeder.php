@@ -10,66 +10,77 @@ use Illuminate\Support\Facades\Artisan;
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Seed application reference data and demo/company data safely.
      *
-     * @return void
+     * APP_KEY is deliberately never generated here. Rotating APP_KEY during
+     * db:seed invalidates encrypted application data, cookies and sessions.
      */
-
-    public function run()
+    public function run(): void
     {
-        // Set Seeding to true check if data is seeding.
-        // This is required to stop notification in installation
         config(['app.seeding' => true]);
 
-        Artisan::call('key:generate');
+        try {
+            $this->call([
+                CountriesTableSeeder::class,
+                SmtpSettingsSeeder::class,
+                EmailSettingSeeder::class,
+                CoreDatabaseSeeder::class,
+                ModulePermissionSeeder::class,
+                OrganisationSettingsTableSeeder::class,
+            ]);
 
-        $this->call(CountriesTableSeeder::class);
-        $this->call(SmtpSettingsSeeder::class);
-        $this->call(CoreDatabaseSeeder::class);
-        $this->call(ModulePermissionSeeder::class);
-
-        $this->call(OrganisationSettingsTableSeeder::class);
-
-        $companies = Company::select('id')->get();
-
-        foreach ($companies as $company) {
+            Company::query()->select('id')->orderBy('id')->chunkById(100, function ($companies): void {
+                foreach ($companies as $company) {
+                    $this->seedCompany((int) $company->id);
+                }
+            });
 
             if (!App::environment('codecanyon')) {
-                $this->call(DepartmentTableSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(UsersTableSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(BankAccountSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(ProjectCategorySeeder::class, false, ['companyId' => $company->id]);
-                $this->call(ProjectSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(EstimateSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(ExpenseSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(TicketSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(TicketSettingSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(RoleSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(LeaveSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(NoticesTableSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(EventTableSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(LeadSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(TaxTableSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(ProductTableSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(ContractTypeTableSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(ContractTableSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(LeadsTableSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(MessageSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(ShiftSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(AttendanceTableSeeder::class, false, ['companyId' => $company->id]);
-                $this->call(AppreciationSeeder::class, false, ['companyId' => $company->id]);
+                Artisan::call('sync-user-permissions all');
             }
-
-            $this->call(EmployeePermissionSeeder::class, false, ['companyId' => $company->id]);
+        } finally {
+            config(['app.seeding' => false]);
+            cache()->flush();
         }
-
-        if (!App::environment('codecanyon')) {
-            Artisan::call('sync-user-permissions all');
-        }
-
-        config(['app.seeding' => false]);
-
-        cache()->flush();
     }
 
+    /**
+     * Seed all records scoped to a company.
+     */
+    private function seedCompany(int $companyId): void
+    {
+        if (!App::environment('codecanyon')) {
+            $companySeeders = [
+                DepartmentTableSeeder::class,
+                UsersTableSeeder::class,
+                BankAccountSeeder::class,
+                ProjectCategorySeeder::class,
+                ProjectSeeder::class,
+                EstimateSeeder::class,
+                ExpenseSeeder::class,
+                TicketSeeder::class,
+                TicketSettingSeeder::class,
+                RoleSeeder::class,
+                LeaveSeeder::class,
+                NoticesTableSeeder::class,
+                EventTableSeeder::class,
+                LeadSeeder::class,
+                TaxTableSeeder::class,
+                ProductTableSeeder::class,
+                ContractTypeTableSeeder::class,
+                ContractTableSeeder::class,
+                LeadsTableSeeder::class,
+                MessageSeeder::class,
+                ShiftSeeder::class,
+                AttendanceTableSeeder::class,
+                AppreciationSeeder::class,
+            ];
+
+            foreach ($companySeeders as $seeder) {
+                $this->call($seeder, false, ['companyId' => $companyId]);
+            }
+        }
+
+        $this->call(EmployeePermissionSeeder::class, false, ['companyId' => $companyId]);
+    }
 }

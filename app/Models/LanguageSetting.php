@@ -65,7 +65,7 @@ class LanguageSetting extends BaseModel
             'language_code' => 'en',
             'flag_code' => 'en',
             'language_name' => 'English',
-            'status' => 'diabled',
+            'status' => 'disabled',
             'is_rtl' => false
         ],
         [
