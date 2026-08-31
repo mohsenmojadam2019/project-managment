@@ -37,12 +37,12 @@ class QualityRegressionTest extends TestCase
     {
         $controller = file_get_contents(app_path('Http/Controllers/DashboardController.php'));
 
-        $this->assertMatchesRegularExpression(
-            "/view_finance_dashboard'\\] == 4\\).*?activeTab = \\$tab \\?: 'finance';.*?financeDashboard\\(\\);/s",
+        $this->assertStringContainsString(
+            "\$this->activeTab = \$tab ?: 'finance';\n                    \$this->financeDashboard();",
             $controller
         );
-        $this->assertMatchesRegularExpression(
-            "/view_ticket_dashboard'\\] == 4\\).*?activeTab = \\$tab \\?: 'ticket';.*?ticketDashboard\\(\\);/s",
+        $this->assertStringContainsString(
+            "\$this->activeTab = \$tab ?: 'ticket';\n                    \$this->ticketDashboard();",
             $controller
         );
     }
