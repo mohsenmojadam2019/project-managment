@@ -27,6 +27,21 @@ jobs:
           tools: composer:v2
           coverage: none
 
+      - name: Correct audit false-positive classification
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tools/apply_remaining_fixes.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace("    'estimate-request-confirm-rejected/{id}': 'estimate-request.confirm_rejected',\n", '')
+          text = text.replace("            'estimate-request-confirm-rejected/{id}',\n", '')
+          text = text.replace(
+              r'''re.search(r"\b(type|method)\s*:\s*(['\"])GET\2", window, flags=re.I)''',
+              r'''re.search(r"\b(type|method)\s*:\s*(['\"])(?:GET|POST)\2", window, flags=re.I)'''
+          )
+          path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Apply deterministic fixes
         run: python3 tools/apply_remaining_fixes.py
 
