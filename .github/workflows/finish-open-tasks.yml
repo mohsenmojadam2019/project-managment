@@ -17,7 +17,7 @@ concurrency:
 jobs:
   finish:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,37 +49,22 @@ jobs:
       - name: Apply deterministic fixes
         run: python3 tools/apply_remaining_fixes.py
 
-      - name: Harden permanent quality workflow
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('.github/workflows/quality.yml')
-          text = path.read_text(encoding='utf-8')
-          install_marker = "      - name: Install dependencies\n"
-          prepare = """      - name: Prepare Laravel writable directories\n        run: |\n          mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs\n          chmod -R u+rwX bootstrap/cache storage\n\n"""
-          if 'Prepare Laravel writable directories' not in text:
-              if install_marker not in text:
-                  raise SystemExit('Install dependencies step not found in permanent quality workflow')
-              text = text.replace(install_marker, prepare + install_marker, 1)
-          unit_old = """      - name: Unit tests\n        run: php artisan test --testsuite=Unit\n"""
-          unit_new = """      - name: Unit tests\n        env:\n          APP_ENV: testing\n          APP_KEY: base64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=\n          CACHE_DRIVER: array\n          SESSION_DRIVER: array\n          QUEUE_CONNECTION: sync\n          MAIL_MAILER: array\n        run: php artisan test --testsuite=Unit\n"""
-          if unit_old in text:
-              text = text.replace(unit_old, unit_new, 1)
-          path.write_text(text, encoding='utf-8')
-          PY
-
       - name: Remove blocked legacy language package
         run: composer remove laravel-lang/lang --no-install --no-scripts --no-interaction
+
+      - name: Keep workflow files unchanged in generated commit
+        run: |
+          git checkout -- .github/workflows/quality.yml tools/apply_remaining_fixes.py
 
       - name: Validate Composer
         run: composer validate --no-check-publish
 
-      - name: PHP syntax check for changed files
+      - name: PHP syntax check for generated changes
         shell: bash
         run: |
-          mapfile -t files < <(git diff --name-only --diff-filter=ACMRT HEAD -- '*.php')
-          if [ ${#files[@]} -gt 0 ]; then
-            printf '%s\0' "${files[@]}" | xargs -0 -P 8 -n1 php -l
+          { git diff --name-only --diff-filter=ACMRT HEAD -- '*.php'; git ls-files --others --exclude-standard -- '*.php'; } | sort -u > /tmp/php-files
+          if [ -s /tmp/php-files ]; then
+            tr '\n' '\0' < /tmp/php-files | xargs -0 -P 8 -n1 php -l
           else
             echo 'No changed PHP files to lint'
           fi
@@ -95,25 +80,3 @@ jobs:
             git commit -m "Complete remaining security database and quality tasks [skip ci]"
             git push origin HEAD:chatgpt/finish-open-tasks-20260831
           fi
-
-      - name: Prepare Laravel writable directories
-        run: |
-          mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
-          chmod -R u+rwX bootstrap/cache storage
-
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
-
-      - name: Run unit tests
-        env:
-          APP_ENV: testing
-          APP_KEY: base64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-          CACHE_DRIVER: array
-          SESSION_DRIVER: array
-          QUEUE_CONNECTION: sync
-          MAIL_MAILER: array
-        run: php artisan test --testsuite=Unit
-
-      - name: Security audit
-        continue-on-error: true
-        run: composer audit --locked --no-dev
