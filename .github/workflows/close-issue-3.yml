@@ -10,6 +10,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: close-issue-3
+  cancel-in-progress: true
+
 jobs:
   fix-and-test:
     runs-on: ubuntu-latest
@@ -29,10 +33,19 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
           path = Path('app/Http/Controllers/DashboardController.php')
           text = path.read_text(encoding='utf-8')
-          text = text.replace("$this->activeTab = $tab ?: 'finance';\n                    $this->ticketDashboard();", "$this->activeTab = $tab ?: 'finance';\n                    $this->financeDashboard();", 1)
-          text = text.replace("$this->activeTab = $tab ?: 'finance';\n                    $this->financeDashboard();", "$this->activeTab = $tab ?: 'ticket';\n                    $this->ticketDashboard();", 1)
+
+          finance = r"(elseif \(\$this->sidebarUserPermissions\['view_finance_dashboard'\] == 4\) \{\s*)\$this->activeTab = \$tab \?: '[^']+';\s*\$this->\w+Dashboard\(\);"
+          ticket = r"(else if \(\$this->sidebarUserPermissions\['view_ticket_dashboard'\] == 4\) \{\s*)\$this->activeTab = \$tab \?: '[^']+';\s*\$this->\w+Dashboard\(\);"
+
+          text, finance_count = re.subn(finance, r"\1$this->activeTab = $tab ?: 'finance';\n                    $this->financeDashboard();", text, count=1)
+          text, ticket_count = re.subn(ticket, r"\1$this->activeTab = $tab ?: 'ticket';\n                    $this->ticketDashboard();", text, count=1)
+          if finance_count != 1 or ticket_count != 1:
+              raise SystemExit(f'Expected one finance and one ticket fallback, got {finance_count}/{ticket_count}')
+
           path.write_text(text, encoding='utf-8')
           PY
 
@@ -67,5 +80,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/Http/Controllers/DashboardController.php
-          git commit -m "Fix finance and ticket dashboard permission fallback"
-          git push origin HEAD:chatgpt/close-issue-3-20260831
+          if git diff --cached --quiet; then
+            echo "No controller change needed"
+          else
+            git commit -m "Fix finance and ticket dashboard permission fallback"
+            git push origin HEAD:chatgpt/close-issue-3-20260831
+          fi
