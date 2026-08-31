@@ -49,6 +49,20 @@ jobs:
       - name: Apply deterministic fixes
         run: python3 tools/apply_remaining_fixes.py
 
+      - name: Remove blocked legacy language package
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('composer.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          removed = data.get('require', {}).pop('laravel-lang/lang', None)
+          if removed is None:
+              raise SystemExit('laravel-lang/lang was not present in composer.json')
+          path.write_text(json.dumps(data, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
+          print(f'Removed blocked legacy dependency laravel-lang/lang ({removed})')
+          PY
+
       - name: Refresh lock metadata
         run: composer update --lock --no-install --no-scripts --no-interaction
 
