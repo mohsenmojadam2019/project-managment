@@ -59,7 +59,7 @@
                 var token = "{{ csrf_token() }}";
 
                 $.easyAjax({
-                    type: 'GET',
+                    type: 'POST',
                     url: url,
                     success: function(response) {
                         if (response.status == "success") {
@@ -133,7 +133,7 @@
         var token = "{{ csrf_token() }}";
 
         $.easyAjax({
-            type: 'GET',
+            type: 'POST',
             container: '#recurring-invoices-table',
             blockUI: true,
             url: url,
@@ -163,7 +163,7 @@
 
         $.easyAjax({
             url: url,
-            type: 'GET',
+            type: 'POST',
             success: function (response) {
                 if (response.status === 'success') {
                     window.LaravelDataTables["recurring-invoices-table"].draw(true);

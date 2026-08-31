@@ -26,10 +26,12 @@
         </div>
 
         <div class="px-lg-4 px-md-4 px-3 py-3 cart_empty">
-            <x-forms.link-primary :link="route('products.empty_cart')" class="empty-cart"
-                icon="trash">
-                @lang('app.emptyCart')
-             </x-forms.link-primary>
+            <form method="POST" action="{{ route('products.empty_cart') }}" class="d-inline">
+                @csrf
+                <button type="submit" class="btn btn-primary f-14 empty-cart">
+                    <i class="fa fa-trash mr-1"></i> @lang('app.emptyCart')
+                </button>
+            </form>
 
 
         </div>

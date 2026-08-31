@@ -1234,7 +1234,7 @@
         url = url.replace(':id', id);
 
         $.easyAjax({
-            type: 'GET',
+            type: 'POST',
             container: '#invoices-table',
             blockUI: true,
             url: url,
@@ -1273,7 +1273,7 @@
                 url = url.replace(':id', id);
 
                 $.easyAjax({
-                    type: 'GET',
+                    type: 'POST',
                     url: url,
                     container: '#invoices-table',
                     blockUI: true,
@@ -1339,7 +1339,7 @@
 
         $.easyAjax({
             url: url,
-            type: 'GET',
+            type: 'POST',
             container: '#invoices-table',
             blockUI: true,
             success: function (response) {

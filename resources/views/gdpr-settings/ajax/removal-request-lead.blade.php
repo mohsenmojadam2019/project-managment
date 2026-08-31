@@ -41,7 +41,7 @@
                 var token = "{{ csrf_token() }}";
 
                 $.easyAjax({
-                    type: 'GET',
+                    type: 'POST',
                     url: url,
                     blockUI: true,
                     data: {

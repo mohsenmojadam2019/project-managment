@@ -1,0 +1,19 @@
+name: Remaining Task Audit
+
+on:
+  push:
+    branches:
+      - 'chatgpt/finish-open-tasks-20260831'
+    paths:
+      - '.github/workflows/audit-remaining.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit remaining work
+        run: python3 tools/audit_remaining.py
