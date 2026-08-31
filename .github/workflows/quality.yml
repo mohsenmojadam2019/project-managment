@@ -13,7 +13,7 @@ permissions:
 jobs:
   php-quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -29,8 +29,40 @@ jobs:
       - name: Validate composer.json
         run: composer validate --no-check-publish
 
+      - name: Prepare Laravel writable directories
+        run: |
+          mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
+          chmod -R u+rwX bootstrap/cache storage
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Composer security audit
+        continue-on-error: true
+        run: composer audit --locked --no-dev
+
+      - name: Unit tests
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          CACHE_DRIVER: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+          MAIL_MAILER: array
+        run: php artisan test --testsuite=Unit
+
+      - name: Focused feature regressions
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          CACHE_DRIVER: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+          MAIL_MAILER: array
+        run: php artisan test tests/Feature/QualityRegressionTest.php
+
       - name: PHP syntax check
         shell: bash
         run: |
           find app database routes tests -type f -name '*.php' -print0 \
-            | xargs -0 -n1 php -l
+            | xargs -0 -P 8 -n1 php -l
