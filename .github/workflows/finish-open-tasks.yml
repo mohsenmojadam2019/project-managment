@@ -49,6 +49,21 @@ jobs:
       - name: Apply deterministic fixes
         run: python3 tools/apply_remaining_fixes.py
 
+      - name: Harden permanent quality workflow
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/quality.yml')
+          text = path.read_text(encoding='utf-8')
+          marker = "      - name: Install dependencies\n"
+          prepare = """      - name: Prepare Laravel writable directories\n        run: |\n          mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs\n          chmod -R u+rwX bootstrap/cache storage\n\n"""
+          if 'Prepare Laravel writable directories' not in text:
+              if marker not in text:
+                  raise SystemExit('Install dependencies step not found in permanent quality workflow')
+              text = text.replace(marker, prepare + marker, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Remove blocked legacy language package
         run: composer remove laravel-lang/lang --no-install --no-scripts --no-interaction
 
@@ -60,10 +75,22 @@ jobs:
           find app database routes tests -type f -name '*.php' -print0 \
             | xargs -0 -n1 php -l
 
+      - name: Prepare Laravel writable directories
+        run: |
+          mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
+          chmod -R u+rwX bootstrap/cache storage
+
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Run unit tests
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:Q2hhdEdQVC1DSV9vbmx5X3Rlc3Rfa2V5XzMyX2J5dGVzISE=
+          CACHE_DRIVER: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+          MAIL_MAILER: array
         run: php artisan test --testsuite=Unit
 
       - name: Security audit
