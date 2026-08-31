@@ -314,7 +314,7 @@ $('#datatableRange').on('change', function() {
             var token = "{{ csrf_token() }}";
 
             $.easyAjax({
-                type: 'GET',
+                type: 'POST',
                 container: '#invoices-recurring-table',
                 blockUI: true,
                 url: url,

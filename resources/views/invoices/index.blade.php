@@ -534,7 +534,7 @@ $manageRecurringInvoicesPermission = user()->permission('manage_recurring_invoic
             var token = "{{ csrf_token() }}";
 
             $.easyAjax({
-                type: 'GET',
+                type: 'POST',
                 container: '#invoices-table',
                 blockUI: true,
                 url: url,
@@ -587,7 +587,7 @@ $manageRecurringInvoicesPermission = user()->permission('manage_recurring_invoic
                     var token = "{{ csrf_token() }}";
 
                     $.easyAjax({
-                        type: 'GET',
+                        type: 'POST',
                         url: url,
                         container: '#invoices-table',
                         blockUI: true,
@@ -609,7 +609,7 @@ $manageRecurringInvoicesPermission = user()->permission('manage_recurring_invoic
 
             $.easyAjax({
                 url: url,
-                type: 'GET',
+                type: 'POST',
                 container: '#invoices-table',
                 blockUI: true,
                 success: function(response) {

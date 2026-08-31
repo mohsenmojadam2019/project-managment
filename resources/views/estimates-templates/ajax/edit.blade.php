@@ -503,7 +503,7 @@ $addProductPermission = user()->permission('add_product');
                     var token = "{{ csrf_token() }}";
 
                     $.easyAjax({
-                        type: 'get',
+                        type: 'POST',
                         url: url,
                         blockUI: true,
                         data: {

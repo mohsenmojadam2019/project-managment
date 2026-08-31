@@ -245,7 +245,7 @@ $addInvoicePermission = user()->permission('add_invoices');
         var token = "{{ csrf_token() }}";
 
         $.easyAjax({
-            type: 'GET',
+            type: 'POST',
             container: '#invoices-table',
             blockUI: true,
             url: url,
@@ -301,7 +301,7 @@ $addInvoicePermission = user()->permission('add_invoices');
                 var token = "{{ csrf_token() }}";
 
                 $.easyAjax({
-                    type: 'GET',
+                    type: 'POST',
                     url: url,
                     success: function(response) {
                         if (response.status == "success") {

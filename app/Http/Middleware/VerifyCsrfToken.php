@@ -12,10 +12,14 @@ class VerifyCsrfToken extends Middleware
      * @var array
      */
     protected $except = [
-        '*-webhook/*',
-        '*_webhook/*',
-        '*_webhook',
-        '*-webhook',
+        'paystack-webhook/*',
+        'flutterwave-webhook/*',
+        'mollie-webhook/*',
+        'payfast-webhook/*',
+        'square-webhook/*',
+        'razorpay-webhook/*',
+        'paypal-webhook/*',
+        'verify-webhook/*',
         '/lead-form/leadStore',
         '/lead-form/ticket-store',
     ];

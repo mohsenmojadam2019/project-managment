@@ -292,7 +292,7 @@ $viewEstimateRequestPermission = user()->permission('view_estimate_request');
                     var token = "{{ csrf_token() }}";
 
                     $.easyAjax({
-                        type: 'GET',
+                        type: 'POST',
                         url: url,
                         container: '#invoices-table',
                         blockUI: true,
