@@ -1,0 +1,40 @@
+name: Laravel 13 compatibility solver
+
+on:
+  push:
+    branches:
+      - chatgpt/sandbox-export-20260904
+
+permissions:
+  contents: read
+
+jobs:
+  solve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, xmlwriter, zip, intl, bcmath, gd, pdo_sqlite
+          tools: composer:v2
+          coverage: none
+      - name: Prepare Laravel 13 constraints
+        shell: bash
+        run: |
+          php -r '$f="composer.json";$j=json_decode(file_get_contents($f),true);$j["require"]["php"]="^8.3";$j["require"]["laravel/framework"]="^13.0";$j["require"]["laravel/sanctum"]="^4.0";$j["require-dev"]["nunomaduro/collision"]="^8.0";$j["require-dev"]["phpunit/phpunit"]="^11.5|^12.0";$j["require-dev"]["spatie/laravel-ignition"]="^3.0";file_put_contents($f,json_encode($j,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)."\n");'
+      - name: Solve dependency graph
+        shell: bash
+        run: |
+          set +e
+          composer update --with-all-dependencies --no-interaction --prefer-dist --no-progress --no-scripts > laravel13-solver.txt 2>&1
+          code=$?
+          echo "EXIT_CODE=$code" >> laravel13-solver.txt
+          exit 0
+      - name: Upload solver report
+        uses: actions/upload-artifact@v4
+        with:
+          name: laravel13-solver-report
+          path: laravel13-solver.txt
+          retention-days: 1
