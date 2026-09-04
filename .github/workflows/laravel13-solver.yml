@@ -20,10 +20,34 @@ jobs:
           extensions: mbstring, dom, xml, xmlwriter, zip, intl, bcmath, gd, pdo_sqlite
           tools: composer:v2
           coverage: none
-      - name: Prepare Laravel 13 constraints
+      - name: Prepare Laravel 13 candidate constraints
         shell: bash
         run: |
-          php -r '$f="composer.json";$j=json_decode(file_get_contents($f),true);$j["require"]["php"]="^8.3";$j["require"]["laravel/framework"]="^13.0";$j["require"]["laravel/sanctum"]="^4.0";$j["require-dev"]["nunomaduro/collision"]="^8.0";$j["require-dev"]["phpunit/phpunit"]="^11.5|^12.0";$j["require-dev"]["spatie/laravel-ignition"]="^3.0";file_put_contents($f,json_encode($j,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)."\n");'
+          php <<'PHP'
+          <?php
+          $f = 'composer.json';
+          $j = json_decode(file_get_contents($f), true);
+          $r =& $j['require'];
+          $d =& $j['require-dev'];
+          $r['php'] = '^8.3';
+          $r['laravel/framework'] = '^13.17';
+          $r['laravel/sanctum'] = '^4.0';
+          $r['laravel/tinker'] = '^3.0';
+          $r['barryvdh/laravel-dompdf'] = '^3.1.2';
+          unset($r['dompdf/dompdf'], $r['froiden/laravel-rest-api'], $r['salehhashemi/laravel-otp-manager']);
+          $r['nwidart/laravel-modules'] = '^13.0';
+          $r['yajra/laravel-datatables-buttons'] = '^13.0';
+          $r['yajra/laravel-datatables-html'] = '^13.0';
+          $r['yajra/laravel-datatables-oracle'] = '^13.0';
+          $d['fakerphp/faker'] = '^1.23';
+          $d['larastan/larastan'] = '^3.0';
+          $d['laravel/pint'] = '^1.27';
+          $d['mockery/mockery'] = '^1.6';
+          $d['nunomaduro/collision'] = '^8.6';
+          $d['phpunit/phpunit'] = '^12.5.12';
+          unset($d['spatie/laravel-ignition']);
+          file_put_contents($f, json_encode($j, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)."\n");
+          PHP
       - name: Solve dependency graph
         shell: bash
         run: |
@@ -31,10 +55,16 @@ jobs:
           composer update --with-all-dependencies --no-interaction --prefer-dist --no-progress --no-scripts > laravel13-solver.txt 2>&1
           code=$?
           echo "EXIT_CODE=$code" >> laravel13-solver.txt
+          cp composer.json laravel13-composer.json
+          test -f composer.lock && cp composer.lock laravel13-composer.lock || true
           exit 0
       - name: Upload solver report
         uses: actions/upload-artifact@v4
         with:
           name: laravel13-solver-report
-          path: laravel13-solver.txt
+          path: |
+            laravel13-solver.txt
+            laravel13-composer.json
+            laravel13-composer.lock
+          if-no-files-found: warn
           retention-days: 1
