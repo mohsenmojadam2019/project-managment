@@ -38,6 +38,8 @@ jobs:
           $r['laravel/fortify'] = '^1.34.1';
           $r['laravel/socialite'] = '^5.24.3';
           $r['laravel-notification-channels/telegram'] = '^7.0';
+          $r['laravel-notification-channels/twilio'] = '^4.2';
+          $r['twilio/sdk'] = '^8.3';
           $r['barryvdh/laravel-dompdf'] = '^3.1.2';
           $r['spatie/laravel-backup'] = '^10.0.1';
           $r['saloonphp/xml-wrangler'] = '^1.5';
