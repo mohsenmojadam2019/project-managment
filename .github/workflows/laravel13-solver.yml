@@ -50,7 +50,8 @@ jobs:
               $r['salehhashemi/laravel-otp-manager'],
               $r['macsidigital/laravel-zoom'],
               $r['billowapp/show-me-the-money'],
-              $r['billowapp/payfast']
+              $r['billowapp/payfast'],
+              $r['edujugon/push-notification']
           );
           $r['nwidart/laravel-modules'] = '^13.0';
           $r['yajra/laravel-datatables-buttons'] = '^13.0';
