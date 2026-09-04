@@ -40,7 +40,12 @@ jobs:
           $r['laravel-notification-channels/telegram'] = '^7.0';
           $r['barryvdh/laravel-dompdf'] = '^3.1.2';
           $r['spatie/laravel-backup'] = '^10.0.1';
-          unset($r['dompdf/dompdf'], $r['froiden/laravel-rest-api'], $r['salehhashemi/laravel-otp-manager']);
+          unset(
+              $r['dompdf/dompdf'],
+              $r['froiden/laravel-rest-api'],
+              $r['salehhashemi/laravel-otp-manager'],
+              $r['macsidigital/laravel-zoom']
+          );
           $r['nwidart/laravel-modules'] = '^13.0';
           $r['yajra/laravel-datatables-buttons'] = '^13.0';
           $r['yajra/laravel-datatables-html'] = '^13.0';
