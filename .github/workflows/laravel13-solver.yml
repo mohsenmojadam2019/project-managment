@@ -45,6 +45,7 @@ jobs:
           $r['saloonphp/xml-wrangler'] = '^1.5';
           $r['webklex/laravel-imap'] = '^6.2';
           $r['hekmatinasser/verta'] = '^9.0';
+          $r['graham-campbell/gitlab'] = '^8.1';
           unset(
               $r['dompdf/dompdf'],
               $r['froiden/laravel-rest-api'],
