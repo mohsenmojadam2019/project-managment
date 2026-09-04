@@ -1,0 +1,31 @@
+name: Sandbox vendor export
+
+on:
+  push:
+    branches:
+      - chatgpt/sandbox-export-20260904
+
+permissions:
+  contents: read
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+      - name: Install locked dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Upload vendor
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-managment-vendor
+          path: vendor
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
