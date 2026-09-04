@@ -29,11 +29,16 @@ jobs:
           $j = json_decode(file_get_contents($f), true);
           $r =& $j['require'];
           $d =& $j['require-dev'];
-          $r['php'] = '^8.3';
+          $r['php'] = '^8.4';
           $r['laravel/framework'] = '^13.17';
           $r['laravel/sanctum'] = '^4.0';
           $r['laravel/tinker'] = '^3.0';
+          $r['laravel/cashier'] = '^16.6';
+          $r['laravel/fortify'] = '^1.34.1';
+          $r['laravel/socialite'] = '^5.24.3';
+          $r['laravel-notification-channels/telegram'] = '^7.0';
           $r['barryvdh/laravel-dompdf'] = '^3.1.2';
+          $r['spatie/laravel-backup'] = '^10.0.1';
           unset($r['dompdf/dompdf'], $r['froiden/laravel-rest-api'], $r['salehhashemi/laravel-otp-manager']);
           $r['nwidart/laravel-modules'] = '^13.0';
           $r['yajra/laravel-datatables-buttons'] = '^13.0';
