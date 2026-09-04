@@ -1,0 +1,46 @@
+name: Sandbox vendor export
+
+on:
+  push:
+    branches:
+      - chatgpt/sandbox-export-20260904
+
+permissions:
+  contents: read
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+      - name: Prepare Laravel writable directories
+        run: |
+          mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
+          chmod -R u+rwX bootstrap/cache storage
+      - name: Install locked dependencies with retry
+        shell: bash
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            if composer install --no-interaction --prefer-dist --no-progress; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 10
+          done
+      - name: Upload vendor
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-managment-vendor
+          path: vendor
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1

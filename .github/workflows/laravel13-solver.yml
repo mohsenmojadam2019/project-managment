@@ -1,0 +1,93 @@
+name: Laravel 13 compatibility solver
+
+on:
+  push:
+    branches:
+      - chatgpt/sandbox-export-20260904
+
+permissions:
+  contents: read
+
+jobs:
+  solve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, xmlwriter, zip, intl, bcmath, gd, pdo_sqlite
+          tools: composer:v2
+          coverage: none
+      - name: Prepare Laravel 13 candidate constraints
+        shell: bash
+        run: |
+          php <<'PHP'
+          <?php
+          $f = 'composer.json';
+          $j = json_decode(file_get_contents($f), true);
+          $r =& $j['require'];
+          $d =& $j['require-dev'];
+          $r['php'] = '^8.4';
+          $r['laravel/framework'] = '^13.17';
+          $r['laravel/sanctum'] = '^4.0';
+          $r['laravel/tinker'] = '^3.0';
+          $r['laravel/cashier'] = '^16.8';
+          $r['stripe/stripe-php'] = '^21.3';
+          $r['laravel/fortify'] = '^1.34.1';
+          $r['laravel/socialite'] = '^5.24.3';
+          $r['laravel-notification-channels/telegram'] = '^7.0';
+          $r['laravel-notification-channels/twilio'] = '^4.2';
+          $r['twilio/sdk'] = '^8.3';
+          $r['barryvdh/laravel-dompdf'] = '^3.1.2';
+          $r['spatie/laravel-backup'] = '^10.0.1';
+          $r['saloonphp/xml-wrangler'] = '^1.5';
+          $r['webklex/laravel-imap'] = '^6.2';
+          $r['hekmatinasser/verta'] = '^9.0';
+          $r['graham-campbell/gitlab'] = '^8.1';
+          unset(
+              $r['dompdf/dompdf'],
+              $r['froiden/laravel-rest-api'],
+              $r['salehhashemi/laravel-otp-manager'],
+              $r['macsidigital/laravel-zoom'],
+              $r['billowapp/show-me-the-money'],
+              $r['billowapp/payfast'],
+              $r['edujugon/push-notification'],
+              $r['craftsys/msg91-laravel-notification-channel'],
+              $r['tzsk/sms'],
+              $r['graham-campbell/markdown']
+          );
+          $r['nwidart/laravel-modules'] = '^13.0';
+          $r['yajra/laravel-datatables-buttons'] = '^13.0';
+          $r['yajra/laravel-datatables-html'] = '^13.0';
+          $r['yajra/laravel-datatables-oracle'] = '^13.0';
+          $d['fakerphp/faker'] = '^1.23';
+          $d['larastan/larastan'] = '^3.0';
+          $d['laravel/pint'] = '^1.27';
+          $d['mockery/mockery'] = '^1.6';
+          $d['nunomaduro/collision'] = '^8.6';
+          $d['phpunit/phpunit'] = '^12.5.12';
+          unset($d['spatie/laravel-ignition']);
+          file_put_contents($f, json_encode($j, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)."\n");
+          PHP
+      - name: Solve dependency graph
+        shell: bash
+        run: |
+          set +e
+          composer update --with-all-dependencies --no-interaction --prefer-dist --no-progress --no-scripts > laravel13-solver.txt 2>&1
+          code=$?
+          echo "EXIT_CODE=$code" >> laravel13-solver.txt
+          cp composer.json laravel13-composer.json
+          test -f composer.lock && cp composer.lock laravel13-composer.lock || true
+          exit 0
+      - name: Upload solver report
+        uses: actions/upload-artifact@v4
+        with:
+          name: laravel13-solver-report
+          path: |
+            laravel13-solver.txt
+            laravel13-composer.json
+            laravel13-composer.lock
+          if-no-files-found: warn
+          retention-days: 1

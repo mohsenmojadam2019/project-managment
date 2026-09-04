@@ -1,0 +1,36 @@
+name: Sandbox source export
+
+on:
+  push:
+    branches:
+      - chatgpt/sandbox-export-20260904
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare clean source archive
+        run: |
+          mkdir -p /tmp/project-managment-source
+          rsync -a --delete \
+            --exclude='.git' \
+            --exclude='vendor' \
+            --exclude='node_modules' \
+            ./ /tmp/project-managment-source/
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-managment-source
+          path: /tmp/project-managment-source
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
