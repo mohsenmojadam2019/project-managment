@@ -33,7 +33,8 @@ jobs:
           $r['laravel/framework'] = '^13.17';
           $r['laravel/sanctum'] = '^4.0';
           $r['laravel/tinker'] = '^3.0';
-          $r['laravel/cashier'] = '^16.6';
+          $r['laravel/cashier'] = '^16.8';
+          $r['stripe/stripe-php'] = '^21.3';
           $r['laravel/fortify'] = '^1.34.1';
           $r['laravel/socialite'] = '^5.24.3';
           $r['laravel-notification-channels/telegram'] = '^7.0';
